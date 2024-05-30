@@ -1,0 +1,77 @@
+@import '../../colors.sass'
+@import '../../const.sass'
+
+.trainings-page
+  display: table
+  position: relative
+  width: 100%
+  background: $white 
+  padding: $big-element-padding $big-page-indent $big-page-indent $big-page-indent 
+  
+  &__element
+    position: relative
+    padding: 5px
+    flex:
+      grow: 1
+      shrink: 0
+    font:
+      weight: $font-weight-semibold
+    text:
+      align: left
+      transform: none
+      decoration: none
+    color: $gray
+    line-height: 30px
+    letter-spacing: 1px
+    cursor: pointer
+  
+    &:hover
+      color: $steel-blue
+
+  &__selected-element
+    position: relative
+    padding: 5px
+    flex:
+      grow: 1
+      shrink: 0
+    font:
+      weight: $font-weight-semibold
+    text:
+      align: left
+      transform: none
+      decoration: none
+    color: $steel-blue
+    line-height: 30px
+    letter-spacing: 1px
+    cursor: pointer
+    background: $blue-light-gray
+
+  &__title
+    font: 
+      weight: $font-weight-semibold
+      size: $subtitle-font-size
+    color: $gray
+
+  &__row
+    display: table-row
+
+  &__col
+    display: table-cell
+    vertical-align: top
+    padding:
+      right: $big-element-padding
+    width: 50%
+
+  &__button
+    background: $blue-light-gray
+    color: $gray
+    margin:
+        top: $small-margin
+    font: 
+        weight: $font-weight-semibold
+    padding: $button-padding $small-element-padding $button-padding $small-element-padding
+    width: 100%
+
+    &:hover
+      color: $steel-blue
+      border-color: $steel-blue

@@ -1,0 +1,70 @@
+@import '../../colors.sass'
+@import '../../const.sass'
+
+.mark-page
+  display: table
+  position: relative
+  width: 100%
+  background: $white 
+  padding: $big-element-padding $big-page-indent $big-page-indent $big-page-indent 
+
+  &__title
+    font: 
+      weight: $font-weight-semibold
+      size: $normal-font-size
+    color: $gray
+    display: inline
+
+  &__text
+    font: 
+      weight: $font-weight-regular
+      size: $normal-font-size
+    color: $gray
+    display: inline
+
+  &__row
+    display: table-row
+    text-align: justify
+
+  &__col
+    display: table-cell
+    vertical-align: top
+    padding:
+      right: $big-element-padding
+    width: 50%
+
+  &__button
+    background: $blue-light-gray
+    color: $gray
+    margin:
+        top: $small-margin
+    font: 
+        weight: $font-weight-semibold
+    padding: $button-padding $small-element-padding $button-padding $small-element-padding
+    width: 100%
+
+    &:hover
+      color: $steel-blue
+      border-color: $steel-blue
+
+  &__big-textarea
+    width: 100%
+    color: $gray
+    resize: none
+    background: $blue-light-gray
+    min-height: 300px
+    max-height: 500px
+    padding: $small-element-padding
+    border-radius: 5px
+
+  &__textarea
+    width: 100%
+    color: $gray
+    resize: none
+    background: $blue-light-gray
+    min-height: 100px
+    max-height: 300px
+    padding: $small-element-padding
+    border-radius: 5px
+
+
