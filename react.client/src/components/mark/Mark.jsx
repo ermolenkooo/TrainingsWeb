@@ -9,7 +9,7 @@ export const Mark = () => {
     const [selectedTrainingStatus, setSelectedTrainingStatus] = useState(null);
     const [selectedTrainingMark, setSelectedTrainingMark] = useState(null);
 
-    const { messages } = useContext(AppContext);
+    const { messages, messages2 } = useContext(AppContext);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -63,7 +63,7 @@ export const Mark = () => {
                     <p className='mark-page__title'>Снятие баллов</p>
                     <textarea className='mark-page__big-textarea' value={messages.join('\n\n')} disabled/>
                     <p></p>
-                    <textarea className='mark-page__textarea' disabled/>
+                    <textarea className='mark-page__textarea' value={messages2.join('\n\n')} disabled/>
                 </div>
             </div>         
         </>

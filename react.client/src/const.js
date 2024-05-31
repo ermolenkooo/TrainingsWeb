@@ -1,3 +1,5 @@
 export const BASE_URL = 'https://localhost:7153/api/'
 export const TRAINING_URL = 'Trainings/'
+export const SETTINGS_URL = 'Settings/'
 export const WEB_SOCKET_URL = 'wss://localhost:7153/ws/'
+export const STOP_TRAINING_URL = 'stop/'

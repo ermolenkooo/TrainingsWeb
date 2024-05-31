@@ -18,7 +18,7 @@ namespace BLL
                 Hosts = RemoteServiceConnectionProperties.CreateHosts(WellKnownPorts.ArchivePort, host1, host1r, host2, host2r)
             };
 
-            var uc = RemoteServiceUserContext.AnonymousWithApiKey("RcEb0aHMZ65gWgpvgygDyjFmlzVUh1LCUtRbJBgPOS2M4D+NoyRQBbCCrs0Y5wCGpH4Z+dkPEGz5WBbF7WP0Yg==|wLFZsE0edMri8YAZM0D2xi4T/s1NaatXj7NZCWklo044HOtk5fOVtkcUgneRBZXj0Oqzdk9dea4=");
+            var uc = RemoteServiceUserContext.AnonymousWithApiKey("vj6kzmT7jQ6eU5h81kKbfnDR8zYpxYYJUF1uPzHtrWC03TyGzf7DvmDekjqHms34RJuoX018xmx84I0Oc2VeUQ==|YLZt71BJbQHGxSiD3gXh+u7HCdVan2K/XxVJoWncubbAAjLeo5uOnKFmQ7n0LmQa/oUelD2UeKTLhft3ZaJ7/Rl4T1/mdVVz");
             return new ScadaArchiveRemoteServiceBuilder(scp, uc);
         }
 
@@ -29,7 +29,7 @@ namespace BLL
                 Hosts = RemoteServiceConnectionProperties.CreateHosts(WellKnownPorts.ServerPort, host1, host1r, host2, host2r),
                 SendStatisticsInterval = TimeSpan.FromSeconds(10)
             };
-            var uc = RemoteServiceUserContext.AnonymousWithApiKey("RcEb0aHMZ65gWgpvgygDyjFmlzVUh1LCUtRbJBgPOS2M4D+NoyRQBbCCrs0Y5wCGpH4Z+dkPEGz5WBbF7WP0Yg==|wLFZsE0edMri8YAZM0D2xi4T/s1NaatXj7NZCWklo044HOtk5fOVtkcUgneRBZXj0Oqzdk9dea4=");
+            var uc = RemoteServiceUserContext.AnonymousWithApiKey("vj6kzmT7jQ6eU5h81kKbfnDR8zYpxYYJUF1uPzHtrWC03TyGzf7DvmDekjqHms34RJuoX018xmx84I0Oc2VeUQ==|YLZt71BJbQHGxSiD3gXh+u7HCdVan2K/XxVJoWncubbAAjLeo5uOnKFmQ7n0LmQa/oUelD2UeKTLhft3ZaJ7/Rl4T1/mdVVz");
             return new ScadaServerRemoteServiceBuilder(scp, uc);
         }
 

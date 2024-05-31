@@ -10,7 +10,7 @@ builder.Services.AddCors(options =>
     options.AddDefaultPolicy(
         policy =>
         {
-            policy.WithOrigins("https://localhost:5174")
+            policy.WithOrigins("https://localhost:5173")
             .AllowAnyHeader()
             .AllowAnyMethod();
         });
@@ -22,7 +22,16 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
 builder.Services.AddTransient<MyOptions>();
+builder.Services.AddSingleton<React.Server.WebSocketManager>();
+//builder.Services.AddSingleton<MyOptions>();
+//builder.Services.AddSingleton<MyOptionsFactory>();
+//builder.Services.AddSingleton(provider =>
+//{
+//    var factory = provider.GetRequiredService<MyOptionsFactory>();
+//    return factory.Create();
+//});
 
 var app = builder.Build();
 

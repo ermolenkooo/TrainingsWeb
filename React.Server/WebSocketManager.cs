@@ -6,6 +6,7 @@ using BLL.Operations;
 using Microsoft.AspNetCore.Mvc;
 using System.Collections.Concurrent;
 using System.Reflection;
+using Newtonsoft.Json;
 
 namespace React.Server
 {
@@ -17,54 +18,79 @@ namespace React.Server
         private ScadaVConnection scadaVConnection2;
         private ScadaVConnection scadaVConnection3;
 
-        public WebSocketManager(WebSocket webSocket, MyOptions options)
+        public WebSocketManager()
         {
+            
+        }
+
+        public async Task HandleWebSocketConnection(int id, WebSocket webSocket, MyOptions options)
+        {
+            statusTraining = 0;
             _webSocket = webSocket;
             _db = new TrainingDbOperations(options);
             scadaVConnection1 = options.scadaVConnection1;
             scadaVConnection2 = options.scadaVConnection2;
             scadaVConnection3 = options.scadaVConnection3;
-        }
-
-        public async Task KeepAlive(int id)
-        {
-            // Здесь вы можете реализовать пинг-понг или другой механизм ожидания выполнения всех асинхронных операций.
-            // Пример: ждем завершения выполнения всех асинхронных операций в BeginScenary
-            await BeginScenary(id, _webSocket);
-
-            // Вы можете продолжать использовать это соединение для других операций после BeginScenary
-        }
-
-        public async Task HandleWebSocketConnection(int id)
-        {
             // Основной цикл обработки сообщений WebSocket
             var buffer = new byte[1024];
             await BeginScenary(id, _webSocket);
             var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
             while (!result.CloseStatus.HasValue)
             {
-                // Обработка полученного сообщения или вызов других асинхронных операций
-                
-
+                if (statusTraining == 2)
+                    break;
                 result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
             }
-
-            //await _webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, CancellationToken.None);
         }
 
         private async Task SendMessageAsync(string mes, WebSocket webSocket)
         {
-            var serverMsg = Encoding.UTF8.GetBytes(mes);
+            // Формируем сообщение с добавлением типа
+            var messageObject = new
+            {
+                type = "textarea1",
+                content = mes
+            };
+            var serverMsg = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(messageObject));
+
+            // Отправляем сообщение
+            await webSocket.SendAsync(new ArraySegment<byte>(serverMsg, 0, serverMsg.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+        }
+
+        private async Task SendMessageAsync2(string mes, WebSocket webSocket)
+        {
+            // Формируем сообщение с добавлением типа
+            var messageObject = new
+            {
+                type = "textarea2",
+                content = mes
+            };
+            var serverMsg = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(messageObject));
+
+            // Отправляем сообщение
+            await webSocket.SendAsync(new ArraySegment<byte>(serverMsg, 0, serverMsg.Length), WebSocketMessageType.Text, true, CancellationToken.None);
+        }
+
+        private async Task SendMarkAsync(string mes, WebSocket webSocket)
+        {
+            // Формируем сообщение с добавлением типа
+            var messageObject = new
+            {
+                type = "mark",
+                content = mes
+            };
+            var serverMsg = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(messageObject));
+
+            // Отправляем сообщение
             await webSocket.SendAsync(new ArraySegment<byte>(serverMsg, 0, serverMsg.Length), WebSocketMessageType.Text, true, CancellationToken.None);
         }
 
         #region Выполнение сценария
+        private int statusTraining = 0;
         private TrainingModel _selectedTraining;
         private int _count;
         private int? _mark;
         private string _endMark;
-        //private string _logText = string.Empty;
-        //private string _logText2 = string.Empty;
         private List<string> _criteriasForReport1;
         private List<string> _criteriasForReport2;
 
@@ -82,6 +108,7 @@ namespace React.Server
         {
             _count = 0;
             _selectedTraining = _db.SelectTrainingById(id);
+            _mark = _selectedTraining.Mark;
             await PerformSelectedTrainingOperations(webSocket);
 
             await LoadDataAsync();
@@ -325,7 +352,7 @@ namespace React.Server
 
                         _discretSignals[i].IsChecked = true;
                         q.Add(new Log { Type = "Trace", Message = "TagId = " + lv.ExitId.ToString() });
-                        await SendMessageAsync("TagId = " + lv.ExitId.ToString(), webSocket);
+                        //await SendMessageAsync("TagId = " + lv.ExitId.ToString(), webSocket);
                         q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
                         await SendMessageAsync(_mark.ToString() + " - текущая оценка.", webSocket);
                     }
@@ -416,7 +443,7 @@ namespace React.Server
 
                             _doubleDiscretSignals[i].IsChecked = true;
                             q.Add(new Log { Type = "Trace", Message = "TagId = " + lv.ExitId.ToString() });
-                            await SendMessageAsync("TagId = " + lv.ExitId.ToString(), webSocket);
+                            //await SendMessageAsync("TagId = " + lv.ExitId.ToString(), webSocket);
                             q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
                             await SendMessageAsync(_mark.ToString() + " - текущая оценка.", webSocket);
                         }
@@ -542,7 +569,7 @@ namespace React.Server
 
                         _discretFromAnalogSignals[i].IsChecked = true;
                         q.Add(new Log { Type = "Trace", Message = "TagId = " + _discretFromAnalogSignals[i].ExitId.ToString() });
-                        await SendMessageAsync("TagId = " + _discretFromAnalogSignals[i].ExitId.ToString(), webSocket);
+                        //await SendMessageAsync("TagId = " + _discretFromAnalogSignals[i].ExitId.ToString(), webSocket);
                         q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
                         await SendMessageAsync(_mark.ToString() + " - текущая оценка.", webSocket);
                     }
@@ -908,275 +935,280 @@ namespace React.Server
             }
         }
 
-        //public async void HandlerEndTrainingAsync()
-        //{
-        //    if (_selectedTraining != null)
-        //    {
-        //        TimerManager.Stop();
-        //        DateTime endTime = DateTime.Now;
-        //        string str;
+        public async void HandlerEndTrainingAsync()
+        {
+            statusTraining = 1;
+            if (_selectedTraining != null)
+            {
+                TimerManager.Stop();
+                DateTime endTime = DateTime.Now;
+                string str;
 
-        //        //одиночные дискретные сигналы
-        //        for (int i = 0; i < _discretSignals.Count; i++)
-        //            await CheckDiscretSignalAsync(i, true);
+                //одиночные дискретные сигналы
+                for (int i = 0; i < _discretSignals.Count; i++)
+                    await CheckDiscretSignalAsync(i, _webSocket, true);
 
-        //        //двойные дискретные сигналы
-        //        for (int i = 0; i < _doubleDiscretSignals.Count; i++)
-        //            await CheckDoubleDiscretSignalAsync(i, true);
+                //двойные дискретные сигналы
+                for (int i = 0; i < _doubleDiscretSignals.Count; i++)
+                    await CheckDoubleDiscretSignalAsync(i, _webSocket, true);
 
-        //        //дискретные сигналы, полученные из аналоговых
-        //        for (int i = 0; i < _discretFromAnalogSignals.Count; i++)
-        //            await CheckDiscretFromAnalogSignalAsync(i, true);
+                //дискретные сигналы, полученные из аналоговых
+                for (int i = 0; i < _discretFromAnalogSignals.Count; i++)
+                    await CheckDiscretFromAnalogSignalAsync(i, _webSocket, true);
 
-        //        //группы дискретных сигналов
-        //        for (int i = 0; i < _groupOfDiscretSignals.Count; i++)
-        //            await CheckGroupOfDiscretSignalAsync(i, true);
+                //группы дискретных сигналов
+                for (int i = 0; i < _groupOfDiscretSignals.Count; i++)
+                    await CheckGroupOfDiscretSignalAsync(i, _webSocket, true);
 
-        //        List<AnalogSignalMark> marks = new List<AnalogSignalMark>();
+                List<AnalogSignalMark> marks = new List<AnalogSignalMark>();
 
-        //        _criteriasForReport1 = new List<string>();
-        //        _criteriasForReport2 = new List<string>();
+                _criteriasForReport1 = new List<string>();
+                _criteriasForReport2 = new List<string>();
 
-        //        //основные критерии надёжности пуска и останова
-        //        List<AnalogSignalModel> analogSignals = _db.SelectAllAnalogSignals(_selectedTraining.Id, 0);
-        //        for (int i = 0; i < analogSignals.Count; i++)
-        //        {
-        //            ScadaVConnection scadaVConnection = new ScadaVConnection();
-        //            switch (analogSignals[i].BaseNum)
-        //            {
-        //                case 1:
-        //                    scadaVConnection = scadaVConnection1;
-        //                    break;
-        //                case 2:
-        //                    scadaVConnection = scadaVConnection2;
-        //                    break;
-        //                case 3:
-        //                    scadaVConnection = scadaVConnection3;
-        //                    break;
-        //            }
+                //основные критерии надёжности пуска и останова
+                List<AnalogSignalModel> analogSignals = _db.SelectAllAnalogSignals(_selectedTraining.Id, 0);
+                for (int i = 0; i < analogSignals.Count; i++)
+                {
+                    ScadaVConnection scadaVConnection = new ScadaVConnection();
+                    switch (analogSignals[i].BaseNum)
+                    {
+                        case 1:
+                            scadaVConnection = scadaVConnection1;
+                            break;
+                        case 2:
+                            scadaVConnection = scadaVConnection2;
+                            break;
+                        case 3:
+                            scadaVConnection = scadaVConnection3;
+                            break;
+                    }
 
-        //            if (analogSignals[i].Func == "Диапазон")
-        //            {
-        //                var f = _db.SelectRange(analogSignals[i].Id);
-        //                marks.Add(await scadaVConnection.Diapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Left, (float)f.Right, f.AbsValues == 1 ? true : false));
-        //            }
-        //            else if (analogSignals[i].Func == "Настраиваемый диапазон")
-        //            {
-        //                var f = _db.SelectAdjustableRange(analogSignals[i].Id);
-        //                marks.Add(await scadaVConnection.CustomizableDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Left, (float)f.Right, f.ExitId));
-        //            }
-        //            else if (analogSignals[i].Func == "Диапазон с параметрами")
-        //            {
-        //                var f = _db.SelectRangeWithParameters(analogSignals[i].Id);
-        //                marks.Add(await scadaVConnection.DiapazonWithParams(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Left, (float)f.Right1, (float)f.Right2, (float)f.ParamVal1, (float)f.ParamVal2, f.ExitId));
-        //            }
-        //            else if (analogSignals[i].Func == "Суммарное или неоднократное превышение уставки")
-        //            {
-        //                var f = _db.SelectExceeding(analogSignals[i].Id);
-        //                marks.Add(await scadaVConnection.TotalOrRepeatedExceeding(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Ustavka, new TimeSpan(f.SummTime), (float)f.Prev));
-        //            }
-        //            str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + "\n";
-        //            _criteriasForReport2.Add(str);
-        //            _logText2 += str;
-        //        }
+                    if (analogSignals[i].Func == "Диапазон")
+                    {
+                        var f = _db.SelectRange(analogSignals[i].Id);
+                        marks.Add(await scadaVConnection.Diapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Left, (float)f.Right, f.AbsValues == 1 ? true : false));
+                    }
+                    else if (analogSignals[i].Func == "Настраиваемый диапазон")
+                    {
+                        var f = _db.SelectAdjustableRange(analogSignals[i].Id);
+                        marks.Add(await scadaVConnection.CustomizableDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Left, (float)f.Right, f.ExitId));
+                    }
+                    else if (analogSignals[i].Func == "Диапазон с параметрами")
+                    {
+                        var f = _db.SelectRangeWithParameters(analogSignals[i].Id);
+                        marks.Add(await scadaVConnection.DiapazonWithParams(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Left, (float)f.Right1, (float)f.Right2, (float)f.ParamVal1, (float)f.ParamVal2, f.ExitId));
+                    }
+                    else if (analogSignals[i].Func == "Суммарное или неоднократное превышение уставки")
+                    {
+                        var f = _db.SelectExceeding(analogSignals[i].Id);
+                        marks.Add(await scadaVConnection.TotalOrRepeatedExceeding(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Ustavka, new TimeSpan(f.SummTime), (float)f.Prev));
+                    }
+                    str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + "\n";
+                    _criteriasForReport2.Add(str);
+                    await SendMessageAsync2(str, _webSocket);
+                }
 
-        //        //дополнительные критерии надёжности пуска и останова
-        //        analogSignals = _db.SelectAllAnalogSignals(_selectedTraining.Id, 1);
-        //        for (int i = 0; i < analogSignals.Count; i++)
-        //        {
-        //            ScadaVConnection scadaVConnection = new ScadaVConnection();
-        //            switch (analogSignals[i].BaseNum)
-        //            {
-        //                case 1:
-        //                    scadaVConnection = scadaVConnection1;
-        //                    break;
-        //                case 2:
-        //                    scadaVConnection = scadaVConnection2;
-        //                    break;
-        //                case 3:
-        //                    scadaVConnection = scadaVConnection3;
-        //                    break;
-        //            }
+                //дополнительные критерии надёжности пуска и останова
+                analogSignals = _db.SelectAllAnalogSignals(_selectedTraining.Id, 1);
+                for (int i = 0; i < analogSignals.Count; i++)
+                {
+                    ScadaVConnection scadaVConnection = new ScadaVConnection();
+                    switch (analogSignals[i].BaseNum)
+                    {
+                        case 1:
+                            scadaVConnection = scadaVConnection1;
+                            break;
+                        case 2:
+                            scadaVConnection = scadaVConnection2;
+                            break;
+                        case 3:
+                            scadaVConnection = scadaVConnection3;
+                            break;
+                    }
 
-        //            if (analogSignals[i].Func == "Диапазон")
-        //            {
-        //                var f = _db.SelectDopRange(analogSignals[i].Id);
-        //                marks.Add(await scadaVConnection.DopDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.OtlBorder, (float)f.XorBorder, (float)f.NeydBorder));
-        //            }
-        //            else if (analogSignals[i].Func == "Поддержание заданного уровня")
-        //            {
-        //                var f = _db.SelectMaintainingLevel(analogSignals[i].Id);
-        //                marks.Add(await scadaVConnection.DopAbsDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Ustavka, (float)f.OtlBorder, (float)f.NeydBorder));
-        //            }
-        //            str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + "\n";
-        //            _criteriasForReport2.Add(str);
-        //            _logText2 += str;
-        //        }
+                    if (analogSignals[i].Func == "Диапазон")
+                    {
+                        var f = _db.SelectDopRange(analogSignals[i].Id);
+                        marks.Add(await scadaVConnection.DopDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.OtlBorder, (float)f.XorBorder, (float)f.NeydBorder));
+                    }
+                    else if (analogSignals[i].Func == "Поддержание заданного уровня")
+                    {
+                        var f = _db.SelectMaintainingLevel(analogSignals[i].Id);
+                        marks.Add(await scadaVConnection.DopAbsDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Ustavka, (float)f.OtlBorder, (float)f.NeydBorder));
+                    }
+                    str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + "\n";
+                    _criteriasForReport2.Add(str);
+                    await SendMessageAsync2(str, _webSocket);
+                }
 
-        //        //основные критерии оценки качества пуска и останова
-        //        analogSignals = _db.SelectAllAnalogSignals(_selectedTraining.Id, 2);
-        //        for (int i = 0; i < analogSignals.Count; i++)
-        //        {
-        //            ScadaVConnection scadaVConnection = new ScadaVConnection();
-        //            switch (analogSignals[i].BaseNum)
-        //            {
-        //                case 1:
-        //                    scadaVConnection = scadaVConnection1;
-        //                    break;
-        //                case 2:
-        //                    scadaVConnection = scadaVConnection2;
-        //                    break;
-        //                case 3:
-        //                    scadaVConnection = scadaVConnection3;
-        //                    break;
-        //            }
+                //основные критерии оценки качества пуска и останова
+                analogSignals = _db.SelectAllAnalogSignals(_selectedTraining.Id, 2);
+                for (int i = 0; i < analogSignals.Count; i++)
+                {
+                    ScadaVConnection scadaVConnection = new ScadaVConnection();
+                    switch (analogSignals[i].BaseNum)
+                    {
+                        case 1:
+                            scadaVConnection = scadaVConnection1;
+                            break;
+                        case 2:
+                            scadaVConnection = scadaVConnection2;
+                            break;
+                        case 3:
+                            scadaVConnection = scadaVConnection3;
+                            break;
+                    }
 
-        //            if (analogSignals[i].Func == "Диапазон")
-        //            {
-        //                var f = _db.SelectRange(analogSignals[i].Id);
-        //                marks.Add(await scadaVConnection.Diapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Left, (float)f.Right, f.AbsValues == 1 ? true : false));
-        //            }
-        //            else if (analogSignals[i].Func == "Настраиваемый диапазон")
-        //            {
-        //                var f = _db.SelectAdjustableRange(analogSignals[i].Id);
-        //                marks.Add(await scadaVConnection.CustomizableDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Left, (float)f.Right, f.ExitId));
-        //            }
-        //            else if (analogSignals[i].Func == "Диапазон с параметрами")
-        //            {
-        //                var f = _db.SelectRangeWithParameters(analogSignals[i].Id);
-        //                marks.Add(await scadaVConnection.DiapazonWithParams(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Left, (float)f.Right1, (float)f.Right2, (float)f.ParamVal1, (float)f.ParamVal2, f.ExitId));
-        //            }
-        //            else if (analogSignals[i].Func == "Суммарное или неоднократное превышение уставки")
-        //            {
-        //                var f = _db.SelectExceeding(analogSignals[i].Id);
-        //                marks.Add(await scadaVConnection.TotalOrRepeatedExceeding(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Ustavka, new TimeSpan(f.SummTime), (float)f.Prev));
-        //            }
-        //            str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + "\n";
-        //            _criteriasForReport2.Add(str);
-        //            _logText2 += str;
-        //        }
+                    if (analogSignals[i].Func == "Диапазон")
+                    {
+                        var f = _db.SelectRange(analogSignals[i].Id);
+                        marks.Add(await scadaVConnection.Diapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Left, (float)f.Right, f.AbsValues == 1 ? true : false));
+                    }
+                    else if (analogSignals[i].Func == "Настраиваемый диапазон")
+                    {
+                        var f = _db.SelectAdjustableRange(analogSignals[i].Id);
+                        marks.Add(await scadaVConnection.CustomizableDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Left, (float)f.Right, f.ExitId));
+                    }
+                    else if (analogSignals[i].Func == "Диапазон с параметрами")
+                    {
+                        var f = _db.SelectRangeWithParameters(analogSignals[i].Id);
+                        marks.Add(await scadaVConnection.DiapazonWithParams(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Left, (float)f.Right1, (float)f.Right2, (float)f.ParamVal1, (float)f.ParamVal2, f.ExitId));
+                    }
+                    else if (analogSignals[i].Func == "Суммарное или неоднократное превышение уставки")
+                    {
+                        var f = _db.SelectExceeding(analogSignals[i].Id);
+                        marks.Add(await scadaVConnection.TotalOrRepeatedExceeding(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Ustavka, new TimeSpan(f.SummTime), (float)f.Prev));
+                    }
+                    str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + "\n";
+                    _criteriasForReport2.Add(str);
+                    await SendMessageAsync2(str, _webSocket);
+                }
 
-        //        //дополнительные критерии оценки качества пуска и останова
-        //        analogSignals = _db.SelectAllAnalogSignals(_selectedTraining.Id, 3);
-        //        for (int i = 0; i < analogSignals.Count; i++)
-        //        {
-        //            ScadaVConnection scadaVConnection = new ScadaVConnection();
-        //            switch (analogSignals[i].BaseNum)
-        //            {
-        //                case 1:
-        //                    scadaVConnection = scadaVConnection1;
-        //                    break;
-        //                case 2:
-        //                    scadaVConnection = scadaVConnection2;
-        //                    break;
-        //                case 3:
-        //                    scadaVConnection = scadaVConnection3;
-        //                    break;
-        //            }
+                //дополнительные критерии оценки качества пуска и останова
+                analogSignals = _db.SelectAllAnalogSignals(_selectedTraining.Id, 3);
+                for (int i = 0; i < analogSignals.Count; i++)
+                {
+                    ScadaVConnection scadaVConnection = new ScadaVConnection();
+                    switch (analogSignals[i].BaseNum)
+                    {
+                        case 1:
+                            scadaVConnection = scadaVConnection1;
+                            break;
+                        case 2:
+                            scadaVConnection = scadaVConnection2;
+                            break;
+                        case 3:
+                            scadaVConnection = scadaVConnection3;
+                            break;
+                    }
 
-        //            if (analogSignals[i].Func == "Диапазон")
-        //            {
-        //                var f = _db.SelectDopRange(analogSignals[i].Id);
-        //                marks.Add(await scadaVConnection.DopDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.OtlBorder, (float)f.XorBorder, (float)f.NeydBorder));
-        //            }
-        //            else if (analogSignals[i].Func == "Поддержание заданного уровня")
-        //            {
-        //                var f = _db.SelectMaintainingLevel(analogSignals[i].Id);
-        //                marks.Add(await scadaVConnection.DopAbsDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Ustavka, (float)f.OtlBorder, (float)f.NeydBorder));
-        //            }
-        //            str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + "\n";
-        //            _criteriasForReport2.Add(str);
-        //            _logText2 += str;
-        //        }
+                    if (analogSignals[i].Func == "Диапазон")
+                    {
+                        var f = _db.SelectDopRange(analogSignals[i].Id);
+                        marks.Add(await scadaVConnection.DopDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.OtlBorder, (float)f.XorBorder, (float)f.NeydBorder));
+                    }
+                    else if (analogSignals[i].Func == "Поддержание заданного уровня")
+                    {
+                        var f = _db.SelectMaintainingLevel(analogSignals[i].Id);
+                        marks.Add(await scadaVConnection.DopAbsDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Ustavka, (float)f.OtlBorder, (float)f.NeydBorder));
+                    }
+                    str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + "\n";
+                    _criteriasForReport2.Add(str);
+                    await SendMessageAsync2(str, _webSocket);
+                }
 
-        //        if (marks.Count != 0)
-        //        {
-        //            int neyd = marks.Where(x => x == AnalogSignalMark.NeYd).Count();
-        //            int yd = marks.Where(x => x == AnalogSignalMark.Yd).Count();
-        //            int xor = marks.Where(x => x == AnalogSignalMark.Xor).Count();
-        //            int otl = marks.Where(x => x == AnalogSignalMark.Otl).Count();
+                if (marks.Count != 0)
+                {
+                    int neyd = marks.Where(x => x == AnalogSignalMark.NeYd).Count();
+                    int yd = marks.Where(x => x == AnalogSignalMark.Yd).Count();
+                    int xor = marks.Where(x => x == AnalogSignalMark.Xor).Count();
+                    int otl = marks.Where(x => x == AnalogSignalMark.Otl).Count();
 
-        //            string mark = "удовлетворительно";
+                    string mark = "удовлетворительно";
 
-        //            if (neyd * 100 / marks.Count >= 5)
-        //                mark = "неудовлетворительно";
-        //            else if (yd * 100 / marks.Count < 20 && neyd == 0)
-        //                mark = "хорошо";
-        //            else if (xor * 100 / marks.Count < 10 && yd == 0 && neyd == 0)
-        //                mark = "отлично";
+                    if (neyd * 100 / marks.Count >= 5)
+                        mark = "неудовлетворительно";
+                    else if (yd * 100 / marks.Count < 20 && neyd == 0)
+                        mark = "хорошо";
+                    else if (xor * 100 / marks.Count < 10 && yd == 0 && neyd == 0)
+                        mark = "отлично";
 
-        //            _endMark = mark;
-        //            str = "Итоговая оценка - " + mark + "\n";
-        //            _logText2 += str;
-        //        }
+                    _endMark = mark;
+                    str = "Итоговая оценка - " + mark + "\n";
+                    await SendMessageAsync2(str, _webSocket);
+                }
 
-        //        //аналоговые сигналы для противоаварийных тренировок
-        //        analogSignals = _db.SelectAllAnalogSignals(_selectedTraining.Id, 4);
-        //        for (int i = 0; i < analogSignals.Count; i++)
-        //        {
-        //            ScadaVConnection scadaVConnection = new ScadaVConnection();
-        //            switch (analogSignals[i].BaseNum)
-        //            {
-        //                case 1:
-        //                    scadaVConnection = scadaVConnection1;
-        //                    break;
-        //                case 2:
-        //                    scadaVConnection = scadaVConnection2;
-        //                    break;
-        //                case 3:
-        //                    scadaVConnection = scadaVConnection3;
-        //                    break;
-        //            }
+                //аналоговые сигналы для противоаварийных тренировок
+                analogSignals = _db.SelectAllAnalogSignals(_selectedTraining.Id, 4);
+                for (int i = 0; i < analogSignals.Count; i++)
+                {
+                    ScadaVConnection scadaVConnection = new ScadaVConnection();
+                    switch (analogSignals[i].BaseNum)
+                    {
+                        case 1:
+                            scadaVConnection = scadaVConnection1;
+                            break;
+                        case 2:
+                            scadaVConnection = scadaVConnection2;
+                            break;
+                        case 3:
+                            scadaVConnection = scadaVConnection3;
+                            break;
+                    }
 
-        //            if (analogSignals[i].Func == "Время пребывания в интервале")
-        //            {
-        //                var f = _db.SelectTimeInInterval(analogSignals[i].Id);
-        //                var time = await scadaVConnection.TimeInIntervalFloat(analogSignals[i].ExitId, (float)f.Bottom, (float)f.Top, (DateTime)_selectedTraining.StartDateTime, endTime);
-        //                bool flag = false;
-        //                if (f.Sign == ">" && time > f.Ustavka)
-        //                    flag = true;
-        //                if (f.Sign == ">=" && time >= f.Ustavka)
-        //                    flag = true;
-        //                if (f.Sign == "<" && time < f.Ustavka)
-        //                    flag = true;
-        //                if (f.Sign == "<=" && time <= f.Ustavka)
-        //                    flag = true;
-        //                if (f.Sign == "=" && time == f.Ustavka)
-        //                    flag = true;
-        //                if (f.Sign == "!=" && time != f.Ustavka)
-        //                    flag = true;
+                    if (analogSignals[i].Func == "Время пребывания в интервале")
+                    {
+                        var f = _db.SelectTimeInInterval(analogSignals[i].Id);
+                        var time = await scadaVConnection.TimeInIntervalFloat(analogSignals[i].ExitId, (float)f.Bottom, (float)f.Top, (DateTime)_selectedTraining.StartDateTime, endTime);
+                        bool flag = false;
+                        if (f.Sign == ">" && time > f.Ustavka)
+                            flag = true;
+                        if (f.Sign == ">=" && time >= f.Ustavka)
+                            flag = true;
+                        if (f.Sign == "<" && time < f.Ustavka)
+                            flag = true;
+                        if (f.Sign == "<=" && time <= f.Ustavka)
+                            flag = true;
+                        if (f.Sign == "=" && time == f.Ustavka)
+                            flag = true;
+                        if (f.Sign == "!=" && time != f.Ustavka)
+                            flag = true;
 
-        //                if (!flag)
-        //                {
-        //                    _mark -= f.Score;
-        //                    str = analogSignals[i].Name + " - " + f.Score + " " + getWord(f.Score) + "\n";
-        //                    _criteriasForReport1.Add(str);
-        //                    _logText2 += str;
-        //                }
-        //            }
-        //            else if (analogSignals[i].Func == "Наличие выхода за коридор")
-        //            {
-        //                var f = _db.SelectExitToTheCorridor(analogSignals[i].Id);
-        //                var res = await scadaVConnection.ValueOutOfBorders(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Bottom, (float)f.Top);
+                        if (!flag)
+                        {
+                            _mark -= f.Score;
+                            str = analogSignals[i].Name + " - " + f.Score + " " + getWord(f.Score) + "\n";
+                            _criteriasForReport1.Add(str);
+                            await SendMessageAsync2(str, _webSocket);
+                        }
+                    }
+                    else if (analogSignals[i].Func == "Наличие выхода за коридор")
+                    {
+                        var f = _db.SelectExitToTheCorridor(analogSignals[i].Id);
+                        var res = await scadaVConnection.ValueOutOfBorders(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, endTime, (float)f.Bottom, (float)f.Top);
 
-        //                if (!res)
-        //                {
-        //                    _mark -= f.Score;
-        //                    str = analogSignals[i].Name + " - " + f.Score + " " + getWord(f.Score) + "\n";
-        //                    _criteriasForReport1.Add(str);
-        //                    _logText2 += str;
-        //                }
-        //            }
-        //        }
-        //    }
+                        if (!res)
+                        {
+                            _mark -= f.Score;
+                            str = analogSignals[i].Name + " - " + f.Score + " " + getWord(f.Score) + "\n";
+                            _criteriasForReport1.Add(str);
+                            await SendMessageAsync2(str, _webSocket);
+                        }
+                    }
+                }
+            }
 
-        //    while (true)
-        //        if (_count == 0)
-        //            break;
+            while (true)
+                if (_count == 0)
+                {
+                    await SendMessageAsync("Итоговая оценка: " + _mark.ToString(), _webSocket);
+                    await SendMarkAsync(_mark.ToString(), _webSocket);
+                    break;
+                }
 
-        //    q.CompleteAdding();
-        //    thread.Join();
-        //}
+            q.CompleteAdding();
+            thread.Join();
+        }
     }
     #endregion
 }
