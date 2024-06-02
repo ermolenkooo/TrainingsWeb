@@ -70,8 +70,10 @@ export const Trainings = () => {
     };
 
     const endTrainingClick = () => {
-        stopTraining(selectedTrainingId);
-        localStorage.setItem('selectedTrainingStatus', 'завершена');
+        if (selectedTrainingId != null && localStorage.getItem('selectedTrainingStatus') == "начата") {
+            stopTraining(selectedTrainingId);
+            localStorage.setItem('selectedTrainingStatus', 'завершена');
+        }
     };
 
     return (
