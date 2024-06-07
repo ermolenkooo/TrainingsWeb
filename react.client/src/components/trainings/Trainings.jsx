@@ -16,8 +16,6 @@ export const Trainings = () => {
     const [isShowingDescriptionModal, toggleDescriptionModal] = usePopup();
     const [isShowingSettingsModal, toggleSettingsModal] = usePopup();
 
-    //const { addMessage } = useContext(AppContext);
-
     useEffect(() => async () => {
         const data = await getTrainings();
         trainingsChange(data.response);
@@ -83,7 +81,8 @@ export const Trainings = () => {
                 <SettingsModal show={isShowingSettingsModal} onClose={toggleSettingsModal} />
                 <div className='trainings-page__col'>
                     <p className='trainings-page__title'>Перечень тренировок</p>
-                    {trainings.map((element) =>
+                    {
+                        trainings.map((element) =>
                         <div
                             className={selectedTrainingId === element.id ? 'trainings-page__selected-element' : 'trainings-page__element'}
                             key={element.id}
