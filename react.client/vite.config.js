@@ -54,6 +54,11 @@ export default defineConfig({
                 ws: true,
                 secure: false,
                 changeOrigin: true
+            },
+            '^/hub': {
+                target, 
+                ws: true,
+                secure: false
             }
         },
         port: 5173,

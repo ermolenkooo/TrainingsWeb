@@ -12,9 +12,10 @@ export const Mark = () => {
     const { messages, messages2 } = useContext(AppContext);
 
     useEffect(() => {
-        const fetchData = async () => {
-            const data = await getTraining(selectedTrainingId);
-            setSelectedTraining(data);
+        const fetchData = () => {
+            getTraining(selectedTrainingId).then(data => {
+                setSelectedTraining(data);
+            });
         };
 
         if (selectedTrainingId) {

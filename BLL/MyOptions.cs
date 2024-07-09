@@ -16,38 +16,36 @@ namespace BLL
 
         public MyOptions() 
         {
-            DbRepos = new DbReposSQLite("TrainingsDb.db");
-            Settings = new Settings();
-            Settings.ReadSettingsFromFile();
-            scadaVConnection1 = new ScadaVConnection();
-            scadaVConnection1.CreateArchiveHost(Settings.ArchiveIp);
-
-            scadaVConnection2 = new ScadaVConnection();
-            scadaVConnection2.CreateArchiveHost(Settings.Archive2Ip);
-
-            scadaVConnection3 = new ScadaVConnection();
-            scadaVConnection3.CreateArchiveHost(Settings.Archive3Ip);
-
-            scadaVConnection1.CreateServerHost(Settings.ArchiveIp);
-            scadaVConnection2.CreateServerHost(Settings.Archive2Ip);
-            scadaVConnection3.CreateServerHost(Settings.Archive3Ip);
+            NewSetting();
         }
 
         public void NewSetting()
         {
+            DbRepos = new DbReposSQLite("TrainingsDb.db");
+            Settings = new Settings();
             Settings.ReadSettingsFromFile();
             scadaVConnection1 = new ScadaVConnection();
-            scadaVConnection1.CreateArchiveHost(Settings.ArchiveIp);
+            scadaVConnection2 = new ScadaVConnection();
+            scadaVConnection3 = new ScadaVConnection();
+        }
+
+        public async Task InitializeAsync()
+        {
+            DbRepos = new DbReposSQLite("TrainingsDb.db");
+            Settings = new Settings();
+            Settings.ReadSettingsFromFile();
+            scadaVConnection1 = new ScadaVConnection();
+            await scadaVConnection1.CreateArchiveHost(Settings.ArchiveIp);
 
             scadaVConnection2 = new ScadaVConnection();
-            scadaVConnection2.CreateArchiveHost(Settings.Archive2Ip);
+            await scadaVConnection2.CreateArchiveHost(Settings.Archive2Ip);
 
             scadaVConnection3 = new ScadaVConnection();
-            scadaVConnection3.CreateArchiveHost(Settings.Archive3Ip);
+            await scadaVConnection3.CreateArchiveHost(Settings.Archive3Ip);
 
-            scadaVConnection1.CreateServerHost(Settings.ArchiveIp);
-            scadaVConnection2.CreateServerHost(Settings.Archive2Ip);
-            scadaVConnection3.CreateServerHost(Settings.Archive3Ip);
+            await scadaVConnection1.CreateServerHost(Settings.ArchiveIp);
+            await scadaVConnection2.CreateServerHost(Settings.Archive2Ip);
+            await scadaVConnection3.CreateServerHost(Settings.Archive3Ip);
         }
     }
 }

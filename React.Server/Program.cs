@@ -2,8 +2,19 @@ using BLL;
 using Microsoft.AspNetCore.Http;
 using React.Server;
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
+using MagicOnion;
 
 var builder = WebApplication.CreateBuilder(args);
+
+//подключаем сервисы SignalR
+//builder.Services.AddSignalR();
+builder.Services.AddSignalR(options =>
+{
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30); // Таймаут для клиента
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15); // Интервал KeepAlive
+    options.EnableDetailedErrors = true; // Включить подробные ошибки, чтобы увидеть, что происходит
+});
 
 builder.Services.AddCors(options =>
 {
@@ -25,14 +36,14 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddTransient<MyOptions>();
-builder.Services.AddSingleton<React.Server.WebSocketManager>();
-//builder.Services.AddSingleton<MyOptions>();
-//builder.Services.AddSingleton<MyOptionsFactory>();
-//builder.Services.AddSingleton(provider =>
+//builder.Services.AddTransient<Task<MyOptions>>(async serviceProvider =>
 //{
-//    var factory = provider.GetRequiredService<MyOptionsFactory>();
-//    return factory.Create();
+//    var myOptions = new MyOptions();
+//    await myOptions.InitializeAsync();
+//    return myOptions;
 //});
+builder.Services.AddSingleton<MessageManager>();
+builder.Services.AddSingleton<React.Server.WebSocketManager>();
 
 var app = builder.Build();
 
@@ -49,6 +60,10 @@ app.UseCors();
 
 app.UseDefaultFiles();
 app.UseStaticFiles();
+
+//MessageHub будет обрабатывать запросы по пути /message
+//app.MapHub<MessageHub>("/api/message");
+app.MapHub<MessageHub>("/hub");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

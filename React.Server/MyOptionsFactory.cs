@@ -4,9 +4,11 @@ namespace React.Server
 {
     public class MyOptionsFactory
     {
-        public MyOptions Create()
+        public static MyOptions Create(IServiceProvider provider)
         {
-            return new MyOptions();
+            var myOptions = new MyOptions();
+            myOptions.InitializeAsync().Wait();
+            return myOptions;
         }
     }
 }

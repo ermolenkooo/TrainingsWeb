@@ -37,6 +37,7 @@ namespace BLL
         {
             Scada.ConnectV.ScadaArchiveHost? archiveHost = ScadaVConnection.ArchiveBuilder(IP).CreateHost();
             archiveConnection = await archiveHost.GetAccessibleAsync();
+            int a = 9;
         }
 
         public async Task CreateServerHost(string IP)
@@ -103,33 +104,39 @@ namespace BLL
         }
         #endregion
 
-
         #region TimeIntervalFunctions
         public async Task<TimeSpan> TimeInIntervalFloat(int TagId, float minBorder, float maxBorder, DateTime startTime, DateTime endTime)
         {
-            List<TagValue> values = await ReadValuesFromArchive(TagId, startTime, endTime);
-            List<TagValue> sortedValues = (from val in values orderby val.TimeStamp select val).ToList<TagValue>();
-            float v;
-            bool inside = false;
-            DateTime open = new DateTime();
-            DateTime close = new DateTime();
-            TimeSpan ans = new TimeSpan();
-            for (int i = 0; i < sortedValues.Count; i++)
+            try
             {
-                v = Convert.ToSingle(sortedValues[i].Value);
-                if (v >= minBorder && v <= maxBorder && !inside)
+                List<TagValue> values = await ReadValuesFromArchive(TagId, startTime, endTime);
+                List<TagValue> sortedValues = (from val in values orderby val.TimeStamp select val).ToList<TagValue>();
+                float v;
+                bool inside = false;
+                DateTime open = new DateTime();
+                DateTime close = new DateTime();
+                TimeSpan ans = new TimeSpan();
+                for (int i = 0; i < sortedValues.Count; i++)
                 {
-                    inside = true;
-                    open = sortedValues[i].TimeStamp;
+                    v = Convert.ToSingle(sortedValues[i].Value);
+                    if (v >= minBorder && v <= maxBorder && !inside)
+                    {
+                        inside = true;
+                        open = sortedValues[i].TimeStamp;
+                    }
+                    if ((inside && (v < minBorder || v > maxBorder)) || (i == values.Count - 1 && inside))
+                    {
+                        inside = false;
+                        close = sortedValues[i].TimeStamp;
+                        ans += close - open;
+                    }
                 }
-                if ((inside && (v < minBorder || v > maxBorder)) || (i == values.Count - 1 && inside))
-                {
-                    inside = false;
-                    close = sortedValues[i].TimeStamp;
-                    ans += close - open;
-                }
+                return ans;
             }
-            return ans;
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
         }
 
         public async Task<TimeSpan> TimeInIntervalInt(int TagId, int minBorder, int maxBorder, DateTime startTime, DateTime endTime)
@@ -189,13 +196,20 @@ namespace BLL
         #region Наличие выхода за коридор
         public async Task<bool> ValueOutOfBorders(int TagId, DateTime startTime, DateTime endTime, float leftBorder, float rightBorder)
         {
-            List<TagValue> values = await ReadValuesFromArchive(TagId, startTime, endTime);
-            for (int i = 0; i < values.Count; i++)
+            try
             {
-                if (Convert.ToSingle(values[i].Value) < leftBorder || Convert.ToSingle(values[i].Value) > rightBorder)
-                    return false;
+                List<TagValue> values = await ReadValuesFromArchive(TagId, startTime, endTime);
+                for (int i = 0; i < values.Count; i++)
+                {
+                    if (Convert.ToSingle(values[i].Value) < leftBorder || Convert.ToSingle(values[i].Value) > rightBorder)
+                        return false;
+                }
+                return true;
             }
-            return true;
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
         }
         #endregion
 
@@ -324,42 +338,49 @@ namespace BLL
         #region Перегрузки функции Диапазон
         public async Task<AnalogSignalMark> Diapazon(int tagId, DateTime startTime, DateTime endTime, float left, float right, bool useAbsValues)
         {
-            List<TagValue> values = await ReadValuesFromArchive(tagId, startTime, endTime);
-            float maxVal;
-            if (useAbsValues)
+            try
             {
-                left = Math.Abs(left);
-                right = Math.Abs(right);
-                //Найти максимум
-                maxVal = Math.Abs(Convert.ToSingle(values[0].Value));
-                for (int i = 1; i < values.Count; i++)
+                List<TagValue> values = await ReadValuesFromArchive(tagId, startTime, endTime);
+                float maxVal;
+                if (useAbsValues)
                 {
-                    float cur = Math.Abs(Convert.ToSingle(values[i].Value));
-                    if (cur > maxVal) maxVal = cur;
+                    left = Math.Abs(left);
+                    right = Math.Abs(right);
+                    //Найти максимум
+                    maxVal = Math.Abs(Convert.ToSingle(values[0].Value));
+                    for (int i = 1; i < values.Count; i++)
+                    {
+                        float cur = Math.Abs(Convert.ToSingle(values[i].Value));
+                        if (cur > maxVal) maxVal = cur;
+                    }
+                }
+                else
+                {
+                    //Найти максимум
+                    maxVal = Convert.ToSingle(values[0].Value);
+                    for (int i = 1; i < values.Count; i++)
+                    {
+                        float cur = Convert.ToSingle(values[i].Value);
+                        if (cur > maxVal) maxVal = cur;
+                    }
+                }
+                //Сравнить максимум с границами
+                if (maxVal >= right)
+                {
+                    return AnalogSignalMark.NeYd;
+                }
+                else if (maxVal <= left)
+                {
+                    return AnalogSignalMark.Otl;
+                }
+                else
+                {
+                    return AnalogSignalMark.Yd;
                 }
             }
-            else
+            catch (Exception ex)
             {
-                //Найти максимум
-                maxVal = Convert.ToSingle(values[0].Value);
-                for (int i = 1; i < values.Count; i++)
-                {
-                    float cur = Convert.ToSingle(values[i].Value);
-                    if (cur > maxVal) maxVal = cur;
-                }
-            }
-            //Сравнить максимум с границами
-            if (maxVal >= right)
-            {
-                return AnalogSignalMark.NeYd;
-            }
-            else if (maxVal <= left)
-            {
-                return AnalogSignalMark.Otl;
-            }
-            else
-            {
-                return AnalogSignalMark.Yd;
+                throw new Exception(ex.Message);
             }
         }
         public async Task<AnalogSignalMark> Diapazon(int tagId, DateTime startTime, DateTime endTime, int left, int right, bool useAbsValues)
@@ -407,48 +428,55 @@ namespace BLL
         #region Перегрузки функции Настраиваемый Диапазон
         public async Task<AnalogSignalMark> CustomizableDiapazon(int tagId, DateTime startTime, DateTime endTime, float left, float right, int exitId)
         {
-            //Ищем начало и конец временного промежутка, где exitId было true
-            List<TagValue> boolValues = await ReadValuesFromArchive(exitId, startTime, endTime);
-            DateTime start = DateTime.MinValue;
-            DateTime end = DateTime.MinValue;
-            for (int i = 0; i < boolValues.Count; i++)
+            try
             {
-                if (start == DateTime.MinValue)
+                //Ищем начало и конец временного промежутка, где exitId было true
+                List<TagValue> boolValues = await ReadValuesFromArchive(exitId, startTime, endTime);
+                DateTime start = DateTime.MinValue;
+                DateTime end = DateTime.MinValue;
+                for (int i = 0; i < boolValues.Count; i++)
                 {
-                    if (Convert.ToBoolean(boolValues[i].Value))
+                    if (start == DateTime.MinValue)
                     {
-                        start = boolValues[i].TimeStamp;
+                        if (Convert.ToBoolean(boolValues[i].Value))
+                        {
+                            start = boolValues[i].TimeStamp;
+                        }
                     }
+                    else
+                    {
+                        if (!Convert.ToBoolean(boolValues[i].Value))
+                        {
+                            end = boolValues[i].TimeStamp;
+                            break;
+                        }
+                    }
+                }
+                //Анализируем значения на полученном промежутке
+                List<TagValue> values = await ReadValuesFromArchive(tagId, start, end);
+                float maxVal = Convert.ToSingle(values[0].Value);
+                for (int i = 1; i < values.Count; i++)
+                {
+                    float cur = Convert.ToSingle(values[i].Value);
+                    if (cur > maxVal) maxVal = cur;
+                }
+                //Сравнить максимум с границами
+                if (maxVal >= right)
+                {
+                    return AnalogSignalMark.NeYd;
+                }
+                else if (maxVal <= left)
+                {
+                    return AnalogSignalMark.Otl;
                 }
                 else
                 {
-                    if (!Convert.ToBoolean(boolValues[i].Value))
-                    {
-                        end = boolValues[i].TimeStamp;
-                        break;
-                    }
+                    return AnalogSignalMark.Yd;
                 }
             }
-            //Анализируем значения на полученном промежутке
-            List<TagValue> values = await ReadValuesFromArchive(tagId, start, end);
-            float maxVal = Convert.ToSingle(values[0].Value);
-            for (int i = 1; i < values.Count; i++)
+            catch (Exception ex)
             {
-                float cur = Convert.ToSingle(values[i].Value);
-                if (cur > maxVal) maxVal = cur;
-            }
-            //Сравнить максимум с границами
-            if (maxVal >= right)
-            {
-                return AnalogSignalMark.NeYd;
-            }
-            else if (maxVal <= left)
-            {
-                return AnalogSignalMark.Otl;
-            }
-            else
-            {
-                return AnalogSignalMark.Yd;
+                throw new Exception(ex.Message);
             }
         }
 
@@ -488,147 +516,175 @@ namespace BLL
 
         public async Task<AnalogSignalMark> DiapazonWithParams(int tagId, DateTime startTime, DateTime endTime, float left, float right1, float right2, float signalValue1, float signalValue2, int signalId)
         {
-            List<TagValue> values = await ReadValuesFromArchive(tagId, startTime, endTime);
-            //Ищем глобальный максимум
-            float maxVal = Convert.ToSingle(values[0].Value);
-            for (int i = 1; i < values.Count; i++)
+            try
             {
-                float cur = Convert.ToSingle(values[i].Value);
-                if (cur > maxVal) maxVal = cur;
-            }
-            if (maxVal <= left) return AnalogSignalMark.Otl;
-            else
-            {
-                if (maxVal >= right2) return AnalogSignalMark.NeYd;
+                List<TagValue> values = await ReadValuesFromArchive(tagId, startTime, endTime);
+                //Ищем глобальный максимум
+                float maxVal = Convert.ToSingle(values[0].Value);
+                for (int i = 1; i < values.Count; i++)
+                {
+                    float cur = Convert.ToSingle(values[i].Value);
+                    if (cur > maxVal) maxVal = cur;
+                }
+                if (maxVal <= left) return AnalogSignalMark.Otl;
                 else
                 {
-                    //разбиваем значения на два интервала по значению signalId
-                    DateTime border = DateTime.MinValue;//граница, разделяющая временные интервалы
-                    List<TagValue> paramValues = await ReadValuesFromArchive(signalId, startTime, endTime);
-                    for (int i = 0; i < paramValues.Count; i++)
+                    if (maxVal >= right2) return AnalogSignalMark.NeYd;
+                    else
                     {
-                        if (Convert.ToSingle(paramValues[i].Value) >= signalValue1)
+                        //разбиваем значения на два интервала по значению signalId
+                        DateTime border = DateTime.MinValue;//граница, разделяющая временные интервалы
+                        List<TagValue> paramValues = await ReadValuesFromArchive(signalId, startTime, endTime);
+                        for (int i = 0; i < paramValues.Count; i++)
                         {
-                            border = paramValues[i].TimeStamp;
-                            break;
+                            if (Convert.ToSingle(paramValues[i].Value) >= signalValue1)
+                            {
+                                border = paramValues[i].TimeStamp;
+                                break;
+                            }
                         }
+                        for (int i = 0; i < values.Count; i++)
+                        {
+                            if (values[i].TimeStamp < border)
+                            {
+                                if (Convert.ToSingle(values[i].Value) >= right1) return AnalogSignalMark.NeYd;
+                            }
+                            else
+                            {
+                                if (Convert.ToSingle(values[i].Value) >= right1) return AnalogSignalMark.NeYd;
+                            }
+                        }
+                        return AnalogSignalMark.Otl;
                     }
-                    for (int i = 0; i < values.Count; i++)
-                    {
-                        if (values[i].TimeStamp < border)
-                        {
-                            if (Convert.ToSingle(values[i].Value) >= right1) return AnalogSignalMark.NeYd;
-                        }
-                        else
-                        {
-                            if (Convert.ToSingle(values[i].Value) >= right1) return AnalogSignalMark.NeYd;
-                        }
-                    }
-                    return AnalogSignalMark.Otl;
                 }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
             }
         }
 
         public async Task<AnalogSignalMark> TotalOrRepeatedExceeding(int tagId, DateTime startTime, DateTime endTime, float ystavka, TimeSpan summTime, float prev)
         {
-            List<TagValue> values = await ReadValuesFromArchive(tagId, startTime, endTime);
-            //Вычислить суммарное время превышения уставки
-            DateTime startUp = DateTime.MinValue;
-            DateTime endUp = DateTime.MinValue;
-            TimeSpan summPrev = new TimeSpan();//суммарное время превышения уставки
-            TimeSpan curPrev = new TimeSpan();//текущее обнаруженное время превышения уставки
-            bool atTheTop = false;
-            for (int i = 0; i < values.Count - 1; i++)
+            try
             {
-                if (!atTheTop)
+                List<TagValue> values = await ReadValuesFromArchive(tagId, startTime, endTime);
+                //Вычислить суммарное время превышения уставки
+                DateTime startUp = DateTime.MinValue;
+                DateTime endUp = DateTime.MinValue;
+                TimeSpan summPrev = new TimeSpan();//суммарное время превышения уставки
+                TimeSpan curPrev = new TimeSpan();//текущее обнаруженное время превышения уставки
+                bool atTheTop = false;
+                for (int i = 0; i < values.Count - 1; i++)
                 {
-                    if (Convert.ToSingle(values[i].Value) <= ystavka && Convert.ToSingle(values[i + 1].Value) >= ystavka)
+                    if (!atTheTop)
                     {
-                        //начинаем превышать уставку
-                        atTheTop = true;
-                        startUp = values[i + 1].TimeStamp;
+                        if (Convert.ToSingle(values[i].Value) <= ystavka && Convert.ToSingle(values[i + 1].Value) >= ystavka)
+                        {
+                            //начинаем превышать уставку
+                            atTheTop = true;
+                            startUp = values[i + 1].TimeStamp;
+                        }
+                    }
+                    else
+                    {
+                        if (Convert.ToSingle(values[i].Value) >= ystavka && Convert.ToSingle(values[i + 1].Value) <= ystavka)
+                        {
+                            //спускаемся ниже уставки
+                            atTheTop = false;
+                            endUp = values[i].TimeStamp;
+                            curPrev = endUp - startUp;
+                            summPrev += curPrev;
+                        }
                     }
                 }
-                else
+                if (summPrev.TotalMinutes >= 20) return AnalogSignalMark.NeYd;
+                //Проверить на неоднократное превышение уставки на величину prev
+                startUp = DateTime.MinValue;
+                endUp = DateTime.MinValue;
+                summPrev = new TimeSpan();
+                curPrev = new TimeSpan();
+                atTheTop = false;
+                int prevCount = 0;
+                for (int i = 0; i < values.Count - 1; i++)
                 {
-                    if (Convert.ToSingle(values[i].Value) >= ystavka && Convert.ToSingle(values[i + 1].Value) <= ystavka)
+                    if (!atTheTop)
                     {
-                        //спускаемся ниже уставки
-                        atTheTop = false;
-                        endUp = values[i].TimeStamp;
-                        curPrev = endUp - startUp;
-                        summPrev += curPrev;
+                        if (Convert.ToSingle(values[i].Value) <= ystavka + prev && Convert.ToSingle(values[i + 1].Value) >= ystavka + prev)
+                        {
+                            //начинаем превышать уставку
+                            atTheTop = true;
+                            prevCount++;
+                            if (prevCount > 1) return AnalogSignalMark.NeYd;
+                        }
+                    }
+                    else
+                    {
+                        if (Convert.ToSingle(values[i].Value) >= ystavka && Convert.ToSingle(values[i + 1].Value) <= ystavka)
+                        {
+                            //спускаемся ниже уставки
+                            atTheTop = false;
+                        }
                     }
                 }
+                if (prevCount <= 1) return AnalogSignalMark.Otl;
+                else return AnalogSignalMark.NeYd;
             }
-            if (summPrev.TotalMinutes >= 20) return AnalogSignalMark.NeYd;
-            //Проверить на неоднократное превышение уставки на величину prev
-            startUp = DateTime.MinValue;
-            endUp = DateTime.MinValue;
-            summPrev = new TimeSpan();
-            curPrev = new TimeSpan();
-            atTheTop = false;
-            int prevCount = 0;
-            for (int i = 0; i < values.Count - 1; i++)
+            catch (Exception ex)
             {
-                if (!atTheTop)
-                {
-                    if (Convert.ToSingle(values[i].Value) <= ystavka + prev && Convert.ToSingle(values[i + 1].Value) >= ystavka + prev)
-                    {
-                        //начинаем превышать уставку
-                        atTheTop = true;
-                        prevCount++;
-                        if (prevCount > 1) return AnalogSignalMark.NeYd;
-                    }
-                }
-                else
-                {
-                    if (Convert.ToSingle(values[i].Value) >= ystavka && Convert.ToSingle(values[i + 1].Value) <= ystavka)
-                    {
-                        //спускаемся ниже уставки
-                        atTheTop = false;
-                    }
-                }
+                throw new Exception(ex.Message);
             }
-            if (prevCount <= 1) return AnalogSignalMark.Otl;
-            else return AnalogSignalMark.NeYd;
         }
         #endregion
 
         #region Дополнительные критерии надёжности пуска / останова
         public async Task<AnalogSignalMark> DopDiapazon(int tagId, DateTime startTime, DateTime endTime, float border1, float border2, float border3)
         {
-            List<TagValue> values = await ReadValuesFromArchive(tagId, startTime, endTime);
-            float maxVal = Convert.ToSingle(values[0].Value);
-            for (int i = 1; i < values.Count; i++)
+            try
             {
-                float cur = Convert.ToSingle(values[i].Value);
-                if (cur > maxVal) maxVal = cur;
-            }
-            if (maxVal <= border1) return AnalogSignalMark.Otl;
-            else
-            {
-                if (maxVal > border3) return AnalogSignalMark.NeYd;
+                List<TagValue> values = await ReadValuesFromArchive(tagId, startTime, endTime);
+                float maxVal = Convert.ToSingle(values[0].Value);
+                for (int i = 1; i < values.Count; i++)
+                {
+                    float cur = Convert.ToSingle(values[i].Value);
+                    if (cur > maxVal) maxVal = cur;
+                }
+                if (maxVal <= border1) return AnalogSignalMark.Otl;
                 else
                 {
-                    if (maxVal <= border2) return AnalogSignalMark.Xor;
-                    else return AnalogSignalMark.Yd;
+                    if (maxVal > border3) return AnalogSignalMark.NeYd;
+                    else
+                    {
+                        if (maxVal <= border2) return AnalogSignalMark.Xor;
+                        else return AnalogSignalMark.Yd;
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
             }
         }
 
         public async Task<AnalogSignalMark> DopAbsDiapazon(int tagId, DateTime startTime, DateTime endTime, float normalVal, float absValOtl, float absValNeYd)
         {
-            List<TagValue> values = await ReadValuesFromArchive(tagId, startTime, endTime);
-            bool otl = true;
-            for (int i = 0; i < values.Count; i++)
+            try
             {
-                if (Math.Abs(Convert.ToSingle(values[i].Value) - normalVal) >= absValNeYd)
-                    return AnalogSignalMark.NeYd;
-                if (Math.Abs(Convert.ToSingle(values[i].Value) - normalVal) > absValNeYd) otl = false;
+                List<TagValue> values = await ReadValuesFromArchive(tagId, startTime, endTime);
+                bool otl = true;
+                for (int i = 0; i < values.Count; i++)
+                {
+                    if (Math.Abs(Convert.ToSingle(values[i].Value) - normalVal) >= absValNeYd)
+                        return AnalogSignalMark.NeYd;
+                    if (Math.Abs(Convert.ToSingle(values[i].Value) - normalVal) > absValNeYd) otl = false;
+                }
+                if (otl) return AnalogSignalMark.Otl;
+                else return AnalogSignalMark.Yd;
             }
-            if (otl) return AnalogSignalMark.Otl;
-            else return AnalogSignalMark.Yd;
+            catch (Exception ex)
+            {
+                throw new Exception(ex.Message);
+            }
         }
         #endregion
 

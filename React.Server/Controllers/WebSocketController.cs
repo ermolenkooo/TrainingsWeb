@@ -29,7 +29,7 @@ namespace React.Server.Controllers
 
         [HttpGet("/ws/{id}")]
         public async Task Get(int id)
-        {
+        { 
             if (HttpContext.WebSockets.IsWebSocketRequest)
             {
                 using var webSocket = await HttpContext.WebSockets.AcceptWebSocketAsync();
@@ -46,12 +46,6 @@ namespace React.Server.Controllers
         public async Task Stop(int id)
         {
             _webSocketManager.HandlerEndTrainingAsync();
-        }
-
-        private async Task SendMessageAsync(string mes, WebSocket webSocket)
-        {
-            var serverMsg = Encoding.UTF8.GetBytes(mes);
-            await webSocket.SendAsync(new ArraySegment<byte>(serverMsg, 0, serverMsg.Length), WebSocketMessageType.Text, true, CancellationToken.None);
         }
     }
 }

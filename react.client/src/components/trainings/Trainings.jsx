@@ -4,8 +4,9 @@ import './Trainings.sass';
 import { DescriptionModal } from '../modal/descriptionModal/DescriptionModal';
 import { SettingsModal } from '../modal/settingsModal/SettingsModal';
 import { usePopup } from '../modal/usePopup';
-import { WEB_SOCKET_URL } from '../../const.js'
-import { AppContext } from '../../api/contexts/appContext/AppContext'
+import { WEB_SOCKET_URL } from '../../const.js';
+import { AppContext } from '../../api/contexts/appContext/AppContext';
+import * as signalR from "@microsoft/signalr";
 
 export const Trainings = () => {
     const [trainings, trainingsChange] = useState([]);
@@ -16,9 +17,10 @@ export const Trainings = () => {
     const [isShowingDescriptionModal, toggleDescriptionModal] = usePopup();
     const [isShowingSettingsModal, toggleSettingsModal] = usePopup();
 
-    useEffect(() => async () => {
-        const data = await getTrainings();
-        trainingsChange(data.response);
+    useEffect(() => {
+        getTrainings().then(data => {
+            trainingsChange(data.response);
+        });
     }, []);
 
     const handleTrainingClick = (id) => {
@@ -58,18 +60,84 @@ export const Trainings = () => {
         };
     };
 
+    const setupSignalRConnection = () => {
+        const hubConnection = new signalR.HubConnectionBuilder()
+            .withUrl("/hub")
+            .build();
+
+        hubConnection.start()
+            .then(() => {
+                console.log('SignalR Connected');
+                hubConnection.invoke("Start", selectedTrainingId.toString())
+                    .catch(function (err) {
+                        return console.error(err.toString());
+                    });
+
+                hubConnection.on("Receive", function (message) {
+                    addMessage(message);
+                });
+
+                hubConnection.on("Receive2", function (message) {
+                    addMessage2(message);
+                });
+
+                hubConnection.on("ReceiveMark", function (message) {
+                    localStorage.setItem('selectedTrainingMark', message);
+                });
+
+                hubConnection.on("ReceiveStatus", function (message) {
+                    localStorage.setItem('selectedTrainingStatus', message);
+                });
+            })
+            .catch(function (err) {
+                return console.error('Error while starting connection: ' + err.toString());
+            });
+
+        hubConnection.onclose((error) => {
+            console.log('SignalR Connection closed', error);
+        });
+
+        //hubConnection.invoke("Send", "message")
+        //    .catch(function (err) {
+        //        return console.error(err.toString());
+        //    });
+
+        //hubConnection.on("Receive", function (message) {
+        //    console.log(message);
+        //});
+
+        //hubConnection.start();
+    }
+
     const startTrainingClick = () => {
         if (selectedTrainingId != null) {
             setMessages([]);
             setMessages2([]);
             localStorage.setItem('selectedTrainingStatus', 'начата');
-            setupWebSocketConnection();
+            //setupWebSocketConnection();
+            setupSignalRConnection();
         }
     };
 
     const endTrainingClick = () => {
         if (selectedTrainingId != null && localStorage.getItem('selectedTrainingStatus') == "начата") {
-            stopTraining(selectedTrainingId);
+            //stopTraining(selectedTrainingId);
+            const hubConnection = new signalR.HubConnectionBuilder()
+                .withUrl("/hub")
+                .build();
+
+            hubConnection.start()
+                .then(() => {
+                    console.log('SignalR Connected');
+                    hubConnection.invoke("End", "end")
+                        .catch(function (err) {
+                            return console.error(err.toString());
+                        });
+                })
+                .catch(function (err) {
+                    return console.error('Error while starting connection: ' + err.toString());
+                });
+
             localStorage.setItem('selectedTrainingStatus', 'завершена');
         }
     };

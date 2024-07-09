@@ -7,11 +7,12 @@ export const SettingsModal = ({ show, onClose, parentCallback }) => {
     const [ip2, setIp2] = useState('');
     const [ip3, setIp3] = useState('');
 
-    useEffect(() => async () => {
-        const data = await getSettings();
-        setIp1(data.ip1);
-        setIp2(data.ip2);
-        setIp3(data.ip3);
+    useEffect(() => {
+        getSettings().then(data => {
+            setIp1(data.ip1);
+            setIp2(data.ip2);
+            setIp3(data.ip3);
+        });
     }, []);
 
     const ip1Handler = (event) => {
