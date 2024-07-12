@@ -12,11 +12,13 @@ namespace React.Server
     {
         private MyOptions _options;
         MessageManager _messageManager;
+        private IHubContext<MessageHub> _hubContext;
 
-        public MessageHub(MyOptions options, MessageManager messageManager)
+        public MessageHub(MyOptions options, MessageManager messageManager, IHubContext<MessageHub> hubContext)
         {
             _options = options;
             _messageManager = messageManager;
+            _hubContext = hubContext;
         }
 
         public async Task Start(string message)
@@ -29,10 +31,11 @@ namespace React.Server
             await _options.scadaVConnection2.CreateServerHost(_options.Settings.Archive2Ip);
             await _options.scadaVConnection3.CreateServerHost(_options.Settings.Archive3Ip);
 
-            await _messageManager.StartConnection(Convert.ToInt32(message), this, _options);
+            _messageManager.SetSettings(_hubContext, _options, false);
+            await _messageManager.StartConnection(Convert.ToInt32(message));
         }
 
-        public async Task End(string message)
+        public async Task End()
         {
             _messageManager.HandlerEndTrainingAsync();
         }

@@ -4,12 +4,12 @@ import './Trainings.sass';
 import { DescriptionModal } from '../modal/descriptionModal/DescriptionModal';
 import { SettingsModal } from '../modal/settingsModal/SettingsModal';
 import { usePopup } from '../modal/usePopup';
-import { WEB_SOCKET_URL } from '../../const.js';
 import { AppContext } from '../../api/contexts/appContext/AppContext';
 import * as signalR from "@microsoft/signalr";
 
 export const Trainings = () => {
     const [trainings, trainingsChange] = useState([]);
+    /*const [hubConnection, setHubConnection] = useState(null);*/
     const { addMessage, setMessages, addMessage2, setMessages2 } = useContext(AppContext);
     const [selectedTrainingId, setSelectedTrainingId] = useState(() => {
         return parseInt(localStorage.getItem('selectedTrainingId')) || null;
@@ -21,6 +21,53 @@ export const Trainings = () => {
         getTrainings().then(data => {
             trainingsChange(data.response);
         });
+
+        const removedConnection = new signalR.HubConnectionBuilder()
+            .withUrl('/hub')
+            .build();
+
+        removedConnection.start()
+            .then(() => {
+                console.log('SignalR Connected Removed');
+            })
+            .catch((error) => {
+                console.error(error);
+            });
+
+        removedConnection.on("StartRemoved", () => {
+            hubConnection.stop();
+            setMessages([]);
+            setMessages2([]);
+        });
+
+        removedConnection.on("ReceiveRemoved", message => {
+            addMessage(message);
+        });
+
+        removedConnection.on("Receive2Removed", message => {
+            addMessage2(message);
+        });
+
+        removedConnection.on("ReceiveMarkRemoved", message => {
+            localStorage.setItem('selectedTrainingMark', message);
+        });
+
+        removedConnection.on("ReceiveStatusRemoved", message => {
+            localStorage.setItem('selectedTrainingStatus', message);
+        });
+
+        removedConnection.on("TrainingIsEndRemoved", () => {
+            //removedConnection.stop();
+        });
+
+        removedConnection.onclose(error => {
+            console.log('SignalR Connection Removed closed', error);
+        });
+
+        return () => {
+            removedConnection.stop();
+        };
+
     }, []);
 
     const handleTrainingClick = (id) => {
@@ -30,40 +77,16 @@ export const Trainings = () => {
         localStorage.setItem('selectedTrainingMark', trainings.find(training => training.id === id).mark);
     };
 
-    const setupWebSocketConnection = () => {
-        const webSocket = new WebSocket(WEB_SOCKET_URL + selectedTrainingId);
-
-        let intervalId;
-        webSocket.onopen = function () {
-            console.log('WebSocket соединение установлено.');
-            intervalId = setInterval(function () {
-                webSocket.send('ping'); // Отправляем ping
-            }, 10);
-        };
-
-        webSocket.onmessage = (event) => {
-            const messageObj = JSON.parse(event.data);
-            if (messageObj.type == "textarea1")
-                addMessage(messageObj.content);
-            else if (messageObj.type == "textarea2")
-                addMessage2(messageObj.content);
-            else
-                localStorage.setItem('selectedTrainingMark', messageObj.content);
-        };
-
-        webSocket.onerror = (error) => {
-            console.error('Произошла ошибка в WebSocket соединении:', error);
-        };
-
-        webSocket.onclose = () => {
-            console.log('WebSocket соединение закрыто');
-        };
-    };
+    const hubConnection = new signalR.HubConnectionBuilder()
+        .withUrl("/hub")
+        .build();
 
     const setupSignalRConnection = () => {
-        const hubConnection = new signalR.HubConnectionBuilder()
-            .withUrl("/hub")
-            .build();
+        //const connection = new signalR.HubConnectionBuilder()
+        //    .withUrl("/hub")
+        //    .build();
+
+        //setHubConnection(connection);
 
         hubConnection.start()
             .then(() => {
@@ -72,6 +95,11 @@ export const Trainings = () => {
                     .catch(function (err) {
                         return console.error(err.toString());
                     });
+
+                hubConnection.on("Start", function () {
+                    setMessages([]);
+                    setMessages2([]);
+                });
 
                 hubConnection.on("Receive", function (message) {
                     addMessage(message);
@@ -88,6 +116,10 @@ export const Trainings = () => {
                 hubConnection.on("ReceiveStatus", function (message) {
                     localStorage.setItem('selectedTrainingStatus', message);
                 });
+
+                hubConnection.on("TrainingIsEnd", function () {
+                    hubConnection.stop();
+                });
             })
             .catch(function (err) {
                 return console.error('Error while starting connection: ' + err.toString());
@@ -96,49 +128,39 @@ export const Trainings = () => {
         hubConnection.onclose((error) => {
             console.log('SignalR Connection closed', error);
         });
-
-        //hubConnection.invoke("Send", "message")
-        //    .catch(function (err) {
-        //        return console.error(err.toString());
-        //    });
-
-        //hubConnection.on("Receive", function (message) {
-        //    console.log(message);
-        //});
-
-        //hubConnection.start();
     }
 
     const startTrainingClick = () => {
-        if (selectedTrainingId != null) {
-            setMessages([]);
-            setMessages2([]);
-            localStorage.setItem('selectedTrainingStatus', 'начата');
-            //setupWebSocketConnection();
+        if (selectedTrainingId != null)
             setupSignalRConnection();
-        }
     };
 
     const endTrainingClick = () => {
-        if (selectedTrainingId != null && localStorage.getItem('selectedTrainingStatus') == "начата") {
-            //stopTraining(selectedTrainingId);
-            const hubConnection = new signalR.HubConnectionBuilder()
-                .withUrl("/hub")
-                .build();
+        if (selectedTrainingId != null && localStorage.getItem('selectedTrainingStatus') == "Начата") {
+            //const hubConnection = new signalR.HubConnectionBuilder()
+            //    .withUrl("/hub")
+            //    .build();
+
+            //hubConnection.invoke("End")
+            //    .catch(function (err) {
+            //        return console.error(err.toString());
+            //    });
 
             hubConnection.start()
                 .then(() => {
                     console.log('SignalR Connected');
-                    hubConnection.invoke("End", "end")
+                    hubConnection.invoke("End")
                         .catch(function (err) {
                             return console.error(err.toString());
                         });
+
+                    hubConnection.on("TrainingIsEnd", function () {
+                        hubConnection.stop();
+                    });
                 })
                 .catch(function (err) {
                     return console.error('Error while starting connection: ' + err.toString());
                 });
-
-            localStorage.setItem('selectedTrainingStatus', 'завершена');
         }
     };
 

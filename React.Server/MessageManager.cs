@@ -9,46 +9,68 @@ using System.Reflection;
 using Newtonsoft.Json;
 using Microsoft.AspNetCore.SignalR;
 using Grpc.Core;
+using Microsoft.Extensions.Options;
 
 namespace React.Server
 {
     public class MessageManager
     {
-        private MessageHub _hub;
+        private IHubContext<MessageHub> _hubContext;
         private TrainingDbOperations _db;
         private ScadaVConnection scadaVConnection1;
         private ScadaVConnection scadaVConnection2;
         private ScadaVConnection scadaVConnection3;
+
+        public string StartFunctionName { get; set; } = "Start";
+        public string ReceiveFunctionName { get; set; } = "Receive";
+        public string Receive2FunctionName { get; set; } = "Receive2";
+        public string ReceiveMarkFunctionName { get; set; } = "ReceiveMark";
+        public string ReceiveStatusFunctionName { get; set; } = "ReceiveStatus";
+        public string TrainingIsEndFunctionName { get; set; } = "TrainingIsEnd";
 
         public MessageManager()
         {
 
         }
 
-        public async Task StartConnection(int id, MessageHub hub, MyOptions options)
+        public void SetSettings(IHubContext<MessageHub> hubContext, MyOptions options, bool isRemoved)
         {
-            statusTraining = 0;
-            _hub = hub;
+            StatusTraining = 0;
+            _hubContext = hubContext;
             _db = new TrainingDbOperations(options);
             scadaVConnection1 = options.scadaVConnection1;
             scadaVConnection2 = options.scadaVConnection2;
             scadaVConnection3 = options.scadaVConnection3;
-            // Основной цикл обработки сообщений 
-            //var buffer = new byte[1024];
+
+            if (isRemoved)
+            {
+                StartFunctionName = "StartRemoved";
+                ReceiveFunctionName = "ReceiveRemoved";
+                Receive2FunctionName = "Receive2Removed";
+                ReceiveMarkFunctionName = "ReceiveMarkRemoved";
+                ReceiveStatusFunctionName = "ReceiveStatusRemoved";
+                TrainingIsEndFunctionName = "TrainingIsEndRemoved";
+            }
+            else
+            {
+                StartFunctionName = "Start";
+                ReceiveFunctionName = "Receive";
+                Receive2FunctionName = "Receive2";
+                ReceiveMarkFunctionName = "ReceiveMark";
+                ReceiveStatusFunctionName = "ReceiveStatus";
+                TrainingIsEndFunctionName = "TrainingIsEnd";
+            }
+        }
+
+        public async Task StartConnection(int id)
+        {
             await BeginScenary(id);
-            while (statusTraining != 2)
+            while (StatusTraining != 2)
                 continue;
-            //var result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-            //while (!result.CloseStatus.HasValue)
-            //{
-            //    if (statusTraining == 2)
-            //        break;
-            //    result = await _webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
-            //}
         }
 
         #region Выполнение сценария
-        private int statusTraining = 0;
+        public int StatusTraining { get; set; } 
         private TrainingModel _selectedTraining;
         private int _count;
         private int? _mark;
@@ -67,6 +89,9 @@ namespace React.Server
 
         public async Task BeginScenary(int id)
         {
+            await _hubContext.Clients.All.SendAsync(StartFunctionName);
+            await _hubContext.Clients.All.SendAsync(ReceiveStatusFunctionName, "Начата");
+
             q = new BlockingCollection<Log>();
             thread = new Thread(Consumer);
             thread.Start();
@@ -82,9 +107,14 @@ namespace React.Server
             TimerManager.Start();
         }
 
+        public bool CheckTraining(int id)
+        {
+            return _db.SelectTrainingById(id).Id != 0 ? true : false;
+        }
+
         private async Task PerformSelectedTrainingOperations()
         {
-            await _hub.Clients.Caller.SendAsync("Receive", "Начинаю запись сценария тренировки " + _selectedTraining.Name);
+            await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, "Начинаю запись сценария тренировки " + _selectedTraining.Name);
 
             _selectedTraining.StartDateTime = DateTime.Now;
 
@@ -125,11 +155,11 @@ namespace React.Server
                 try
                 {
                     result = await scadaVConnection.WriteVariable(operation.ExitId, valBool, DateTime.Now);
-                    await _hub.Clients.Caller.SendAsync("Receive", "Запись значения типа BOOL по тэгу " + operation.ExitId + ". Прошла ли запись удачно - " + result + ".");
+                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, "Запись значения типа BOOL по тэгу " + operation.ExitId + ". Прошла ли запись удачно - " + result + ".");
                 }
                 catch (Exception ex)
                 {
-                    await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                 }
             }
             else if (operation.ValueToWrite.ToLower() == "false")
@@ -138,11 +168,11 @@ namespace React.Server
                 try
                 {
                     result = await scadaVConnection.WriteVariable(operation.ExitId, valBool, DateTime.Now);
-                    await _hub.Clients.Caller.SendAsync("Receive", "Запись значения типа BOOL по тэгу " + operation.ExitId + ". Прошла ли запись удачно - " + result + ".");
+                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, "Запись значения типа BOOL по тэгу " + operation.ExitId + ". Прошла ли запись удачно - " + result + ".");
                 }
                 catch (Exception ex)
                 {
-                    await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                 }
             }
             else if (operation.ValueToWrite.Contains('.'))
@@ -151,11 +181,11 @@ namespace React.Server
                 try
                 {
                     result = await scadaVConnection.WriteVariable(operation.ExitId, valFloat, DateTime.Now);
-                    await _hub.Clients.Caller.SendAsync("Receive", "Запись значения типа REAL по тэгу " + operation.ExitId + ". Прошла ли запись удачно - " + result + ".");
+                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, "Запись значения типа REAL по тэгу " + operation.ExitId + ". Прошла ли запись удачно - " + result + ".");
                 }
                 catch (Exception ex)
                 {
-                    await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                 }
             }
             else
@@ -164,11 +194,11 @@ namespace React.Server
                 try
                 {
                     result = await scadaVConnection.WriteVariable(operation.ExitId, valInt, DateTime.Now);
-                    await _hub.Clients.Caller.SendAsync("Receive", "Запись значения типа INT по тэгу " + +operation.ExitId + ". Прошла ли запись удачно - " + result + ".");
+                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, "Запись значения типа INT по тэгу " + +operation.ExitId + ". Прошла ли запись удачно - " + result + ".");
                 }
                 catch (Exception ex)
                 {
-                    await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                 }
             }
         }
@@ -269,7 +299,7 @@ namespace React.Server
                         {
                             _mark -= borders.Score1;
                             string str = _discretSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + "\n";
-                            await _hub.Clients.Caller.SendAsync("Receive", str);
+                            await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                         }
 
                         if (borders.T2 != null && borders.Score2 != null)
@@ -277,7 +307,7 @@ namespace React.Server
                             {
                                 _mark -= borders.Score2;
                                 string str = _discretSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                         if (borders.T2 != null && borders.T3 != null && borders.Score3 != null)
@@ -285,7 +315,7 @@ namespace React.Server
                             {
                                 _mark -= borders.Score3;
                                 string str = _discretSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                         if (borders.T3 != null && borders.T4 != null && borders.Score4 != null)
@@ -293,7 +323,7 @@ namespace React.Server
                             {
                                 _mark -= borders.Score4;
                                 string str = _discretSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                         if (borders.T4 != null && borders.Score5 != null)
@@ -301,14 +331,14 @@ namespace React.Server
                             {
                                 _mark -= borders.Score5;
                                 string str = _discretSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                         _discretSignals[i].IsChecked = true;
                         q.Add(new Log { Type = "Trace", Message = "TagId = " + lv.ExitId.ToString() });
                         //await SendMessageAsync("TagId = " + lv.ExitId.ToString(), webSocket);
                         q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
-                        await _hub.Clients.Caller.SendAsync("Receive", _mark.ToString() + " - текущая оценка.");
+                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
                     }
                     else
                         _discretSignals[i].DeltaT = _discretSignals[i].DeltaT.Add(new TimeSpan(0, 0, 1));
@@ -316,7 +346,7 @@ namespace React.Server
                 catch (Exception ex)
                 {
                     q.Add(new Log { Type = "Error", Message = ex.Message });
-                    await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                 }
             }
         }
@@ -359,7 +389,7 @@ namespace React.Server
                             {
                                 _mark -= borders.Score1;
                                 string str = _doubleDiscretSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                             if (borders.T2 != null && borders.Score2 != null)
@@ -367,7 +397,7 @@ namespace React.Server
                                 {
                                     _mark -= borders.Score2;
                                     string str = _doubleDiscretSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + "\n";
-                                    await _hub.Clients.Caller.SendAsync("Receive", str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                                 }
 
                             if (borders.T2 != null && borders.T3 != null && borders.Score3 != null)
@@ -375,7 +405,7 @@ namespace React.Server
                                 {
                                     _mark -= borders.Score3;
                                     string str = _doubleDiscretSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + "\n";
-                                    await _hub.Clients.Caller.SendAsync("Receive", str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                                 }
 
                             if (borders.T3 != null && borders.T4 != null && borders.Score4 != null)
@@ -383,7 +413,7 @@ namespace React.Server
                                 {
                                     _mark -= borders.Score4;
                                     string str = _doubleDiscretSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + "\n";
-                                    await _hub.Clients.Caller.SendAsync("Receive", str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                                 }
 
                             if (borders.T4 != null && borders.Score5 != null)
@@ -391,20 +421,20 @@ namespace React.Server
                                 {
                                     _mark -= borders.Score5;
                                     string str = _doubleDiscretSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + "\n";
-                                    await _hub.Clients.Caller.SendAsync("Receive", str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                                 }
 
                             _doubleDiscretSignals[i].IsChecked = true;
                             q.Add(new Log { Type = "Trace", Message = "TagId = " + lv.ExitId.ToString() });
                             //await SendMessageAsync("TagId = " + lv.ExitId.ToString(), webSocket);
                             q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
-                            await _hub.Clients.Caller.SendAsync("Receive", _mark.ToString() + " - текущая оценка.");
+                            await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
                         }
                     }
                     catch (Exception ex)
                     {
                         q.Add(new Log { Type = "Error", Message = ex.Message });
-                        await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                     }
                 }
                 else
@@ -431,7 +461,7 @@ namespace React.Server
                     catch (Exception ex)
                     {
                         q.Add(new Log { Type = "Error", Message = ex.Message });
-                        await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                     }
                 }
             }
@@ -485,7 +515,7 @@ namespace React.Server
                         {
                             _mark -= borders.Score1;
                             string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + "\n";
-                            await _hub.Clients.Caller.SendAsync("Receive", str);
+                            await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                         }
 
                         if (borders.T2 != null && borders.Score2 != null)
@@ -493,7 +523,7 @@ namespace React.Server
                             {
                                 _mark -= borders.Score2;
                                 string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                         if (borders.T2 != null && borders.T3 != null && borders.Score3 != null)
@@ -501,7 +531,7 @@ namespace React.Server
                             {
                                 _mark -= borders.Score3;
                                 string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                         if (borders.T3 != null && borders.T4 != null && borders.Score4 != null)
@@ -509,7 +539,7 @@ namespace React.Server
                             {
                                 _mark -= borders.Score4;
                                 string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                         if (borders.T4 != null && borders.Score5 != null)
@@ -517,14 +547,14 @@ namespace React.Server
                             {
                                 _mark -= borders.Score5;
                                 string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                         _discretFromAnalogSignals[i].IsChecked = true;
                         q.Add(new Log { Type = "Trace", Message = "TagId = " + _discretFromAnalogSignals[i].ExitId.ToString() });
                         //await SendMessageAsync("TagId = " + _discretFromAnalogSignals[i].ExitId.ToString(), webSocket);
                         q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
-                        await _hub.Clients.Caller.SendAsync("Receive", _mark.ToString() + " - текущая оценка.");
+                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
                     }
                     else
                         _discretFromAnalogSignals[i].DeltaT = _discretFromAnalogSignals[i].DeltaT.Add(new TimeSpan(0, 0, 1));
@@ -532,7 +562,7 @@ namespace React.Server
                 catch (Exception ex)
                 {
                     q.Add(new Log { Type = "Error", Message = ex.Message });
-                    await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                 }
             }
         }
@@ -573,7 +603,7 @@ namespace React.Server
                             catch (Exception ex)
                             {
                                 q.Add(new Log { Type = "Error", Message = ex.Message });
-                                await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                             }
                         }
 
@@ -617,7 +647,7 @@ namespace React.Server
                                 catch (Exception ex)
                                 {
                                     q.Add(new Log { Type = "Error", Message = ex.Message });
-                                    await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                                 }
                             }
                         }
@@ -635,7 +665,7 @@ namespace React.Server
                         {
                             _mark -= borders.Score1;
                             string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + "\n";
-                            await _hub.Clients.Caller.SendAsync("Receive", str);
+                            await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                         }
 
                         if (borders.T2 != null && borders.Score2 != null)
@@ -643,7 +673,7 @@ namespace React.Server
                             {
                                 _mark -= borders.Score2;
                                 string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                         if (borders.T2 != null && borders.T3 != null && borders.Score3 != null)
@@ -651,7 +681,7 @@ namespace React.Server
                             {
                                 _mark -= borders.Score3;
                                 string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                         if (borders.T3 != null && borders.T4 != null && borders.Score4 != null)
@@ -659,7 +689,7 @@ namespace React.Server
                             {
                                 _mark -= borders.Score4;
                                 string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                         if (borders.T4 != null && borders.Score5 != null)
@@ -667,12 +697,12 @@ namespace React.Server
                             {
                                 _mark -= borders.Score5;
                                 string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + "\n";
-                                await _hub.Clients.Caller.SendAsync("Receive", str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
 
                         _groupOfDiscretSignals[i].IsChecked = true;
                         q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
-                        await _hub.Clients.Caller.SendAsync("Receive", _mark.ToString() + " - текущая оценка.");
+                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
                     }
                     else
                         _groupOfDiscretSignals[i].DeltaT = _groupOfDiscretSignals[i].DeltaT.Add(new TimeSpan(0, 0, 1));
@@ -706,7 +736,7 @@ namespace React.Server
                             catch (Exception ex)
                             {
                                 q.Add(new Log { Type = "Error", Message = ex.Message });
-                                await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                             }
                         }
                     }
@@ -751,7 +781,7 @@ namespace React.Server
                             catch (Exception ex)
                             {
                                 q.Add(new Log { Type = "Error", Message = ex.Message });
-                                await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                             }
                         }
                     }
@@ -821,12 +851,12 @@ namespace React.Server
                             {
                                 result = await scadaVConnection.WriteVariable(_operationsWithCondition[i].ExitId, valBool, DateTime.Now);
                                 q.Add(new Log { Type = "Trace", Message = "Запись значения типа BOOL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + "." });
-                                await _hub.Clients.Caller.SendAsync("Receive", "Запись значения типа BOOL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + ".");
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, "Запись значения типа BOOL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + ".");
                             }
                             catch (Exception ex)
                             {
                                 q.Add(new Log { Type = "Error", Message = ex.Message });
-                                await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                             }
                         }
                         else if (_operationsWithCondition[i].ValueToWrite.ToLower() == "false")
@@ -836,12 +866,12 @@ namespace React.Server
                             {
                                 result = await scadaVConnection.WriteVariable(_operationsWithCondition[i].ExitId, valBool, DateTime.Now);
                                 q.Add(new Log { Type = "Trace", Message = "Запись значения типа BOOL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + "." });
-                                await _hub.Clients.Caller.SendAsync("Receive", "Запись значения типа BOOL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + ".");
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, "Запись значения типа BOOL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + ".");
                             }
                             catch (Exception ex)
                             {
                                 q.Add(new Log { Type = "Error", Message = ex.Message });
-                                await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                             }
                         }
                         else if (_operationsWithCondition[i].ValueToWrite.Contains('.'))
@@ -851,12 +881,12 @@ namespace React.Server
                             {
                                 result = await scadaVConnection.WriteVariable(_operationsWithCondition[i].ExitId, valFloat, DateTime.Now);
                                 q.Add(new Log { Type = "Trace", Message = "Запись значения типа REAL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + "." });
-                                await _hub.Clients.Caller.SendAsync("Receive", "Запись значения типа REAL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + ".");
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, "Запись значения типа REAL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + ".");
                             }
                             catch (Exception ex)
                             {
                                 q.Add(new Log { Type = "Error", Message = ex.Message });
-                                await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                             }
                         }
                         else
@@ -866,12 +896,12 @@ namespace React.Server
                             {
                                 result = await scadaVConnection.WriteVariable(_operationsWithCondition[i].ExitId, valInt, DateTime.Now);
                                 q.Add(new Log { Type = "Trace", Message = "Запись значения типа INT по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + "." });
-                                await _hub.Clients.Caller.SendAsync("Receive", "Запись значения типа INT по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + ".");
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, "Запись значения типа INT по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + ".");
                             }
                             catch (Exception ex)
                             {
                                 q.Add(new Log { Type = "Error", Message = ex.Message });
-                                await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                             }
                         }
                         _operationsWithCondition[i].IsChecked = true;
@@ -880,7 +910,7 @@ namespace React.Server
                 catch (Exception ex)
                 {
                     q.Add(new Log { Type = "Error", Message = ex.Message });
-                    await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                 }
             }
         }
@@ -889,7 +919,8 @@ namespace React.Server
         {
             try
             {
-                statusTraining = 1;
+                //await _hubContext.Clients.All.SendAsync(TrainingIsEndFunctionName);
+                StatusTraining = 1;
                 if (_selectedTraining != null)
                 {
                     TimerManager.Stop();
@@ -957,7 +988,7 @@ namespace React.Server
                         }
                         str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + "\n";
                         _criteriasForReport2.Add(str);
-                        await _hub.Clients.Caller.SendAsync("Receive2", str);
+                        await _hubContext.Clients.All.SendAsync(Receive2FunctionName, str);
                     }
 
                     //дополнительные критерии надёжности пуска и останова
@@ -990,7 +1021,7 @@ namespace React.Server
                         }
                         str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + "\n";
                         _criteriasForReport2.Add(str);
-                        await _hub.Clients.Caller.SendAsync("Receive2", str);
+                        await _hubContext.Clients.All.SendAsync(Receive2FunctionName, str);
                     }
 
                     //основные критерии оценки качества пуска и останова
@@ -1033,7 +1064,7 @@ namespace React.Server
                         }
                         str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + "\n";
                         _criteriasForReport2.Add(str);
-                        await _hub.Clients.Caller.SendAsync("Receive2", str);
+                        await _hubContext.Clients.All.SendAsync(Receive2FunctionName, str);
                     }
 
                     //дополнительные критерии оценки качества пуска и останова
@@ -1066,7 +1097,7 @@ namespace React.Server
                         }
                         str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + "\n";
                         _criteriasForReport2.Add(str);
-                        await _hub.Clients.Caller.SendAsync("Receive2", str);
+                        await _hubContext.Clients.All.SendAsync(Receive2FunctionName, str);
                     }
 
                     if (marks.Count != 0)
@@ -1087,7 +1118,7 @@ namespace React.Server
 
                         _endMark = mark;
                         str = "Итоговая оценка - " + mark + "\n";
-                        await _hub.Clients.Caller.SendAsync("Receive2", str);
+                        await _hubContext.Clients.All.SendAsync(Receive2FunctionName, str);
                     }
 
                     //аналоговые сигналы для противоаварийных тренировок
@@ -1131,7 +1162,7 @@ namespace React.Server
                                 _mark -= f.Score;
                                 str = analogSignals[i].Name + " - " + f.Score + " " + getWord(f.Score) + "\n";
                                 _criteriasForReport1.Add(str);
-                                await _hub.Clients.Caller.SendAsync("Receive2", str);
+                                await _hubContext.Clients.All.SendAsync(Receive2FunctionName, str);
                             }
                         }
                         else if (analogSignals[i].Func == "Наличие выхода за коридор")
@@ -1144,7 +1175,7 @@ namespace React.Server
                                 _mark -= f.Score;
                                 str = analogSignals[i].Name + " - " + f.Score + " " + getWord(f.Score) + "\n";
                                 _criteriasForReport1.Add(str);
-                                await _hub.Clients.Caller.SendAsync("Receive2", str);
+                                await _hubContext.Clients.All.SendAsync(Receive2FunctionName, str);
                             }
                         }
                     }
@@ -1153,30 +1184,31 @@ namespace React.Server
             catch (Exception ex)
             {
                 if (ex.Message.Contains("вернулась пустая коллекция"))
-                    await _hub.Clients.Caller.SendAsync("ReceiveStatus", "Тренировка не завершена, оценка не сформирована!");
+                    await _hubContext.Clients.All.SendAsync(ReceiveStatusFunctionName, "Тренировка не завершена, оценка не сформирована!");
 
-                await _hub.Clients.Caller.SendAsync("Receive", ex.Message);
+                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                 q.Add(new Log { Type = "Error", Message = ex.Message });
 
                 while (true)
                     if (_count == 0)
                     {
-                        statusTraining = 2;
-                        q.CompleteAdding();
-                        thread.Join();
+                        StatusTraining = 2;
+                        await _hubContext.Clients.All.SendAsync(TrainingIsEndFunctionName);
+                        break;
                     }
-
                 return;
             }
 
             while (true)
                 if (_count == 0)
                 {
-                    await _hub.Clients.Caller.SendAsync("Receive", "Итоговая оценка: " + _mark.ToString());
-                    await _hub.Clients.Caller.SendAsync("ReceiveMark", _mark.ToString());
-                    statusTraining = 2;
+                    await _hubContext.Clients.All.SendAsync(ReceiveStatusFunctionName, "Завершена");
+                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, "Итоговая оценка: " + _mark.ToString());
+                    await _hubContext.Clients.All.SendAsync(ReceiveMarkFunctionName, _mark.ToString());
+                    StatusTraining = 2;
                     q.CompleteAdding();
                     thread.Join();
+                    await _hubContext.Clients.All.SendAsync(TrainingIsEndFunctionName);
                     break;
                 }
         }
