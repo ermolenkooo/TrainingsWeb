@@ -10,6 +10,7 @@ using Newtonsoft.Json;
 using Microsoft.AspNetCore.SignalR;
 using Grpc.Core;
 using Microsoft.Extensions.Options;
+using DAL.Entities;
 
 namespace React.Server
 {
@@ -119,7 +120,6 @@ namespace React.Server
             _selectedTraining.StartDateTime = DateTime.Now;
 
             var operations = _db.SelectOperationsWithTrainingId(_selectedTraining.Id);
-
             Parallel.For(0, operations.Count(), (i) => PerformOperationAsync(operations[i]));
         }
 
@@ -175,9 +175,10 @@ namespace React.Server
                     await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                 }
             }
-            else if (operation.ValueToWrite.Contains('.'))
+            else if (operation.ValueToWrite.Contains('.') || operation.ValueToWrite.Contains(','))
             {
-                valFloat = Convert.ToSingle(operation.ValueToWrite);
+                operation.ValueToWrite = operation.ValueToWrite.Replace('.', ',');
+                valFloat = float.Parse(operation.ValueToWrite);
                 try
                 {
                     result = await scadaVConnection.WriteVariable(operation.ExitId, valFloat, DateTime.Now);
@@ -295,50 +296,74 @@ namespace React.Server
                     {
                         var borders = _db.SelectTimeBordersWithDiscretId(_discretSignals[i].Id, 0);
 
-                        if (_discretSignals[i].DeltaT.Ticks < borders.T1)
+                        if (_discretSignals[i].DeltaT.Ticks < borders.T1 && !_discretSignals[i].Tags[0])
                         {
                             _mark -= borders.Score1;
-                            string str = _discretSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + "\n";
-                            await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                            _discretSignals[i].Tags[0] = true;
+                            if (borders.Score1 != 0) 
+                            {
+                                string str = _discretSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + "\n";
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                            }
                         }
 
                         if (borders.T2 != null && borders.Score2 != null)
-                            if (_discretSignals[i].DeltaT.Ticks >= borders.T1 && _discretSignals[i].DeltaT.Ticks < borders.T2)
+                            if (_discretSignals[i].DeltaT.Ticks >= borders.T1 && _discretSignals[i].DeltaT.Ticks < borders.T2 && !_discretSignals[i].Tags[1])
                             {
                                 _mark -= borders.Score2;
-                                string str = _discretSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _discretSignals[i].Tags[1] = true;
+                                if (borders.Score2 != 0)
+                                {
+                                    string str = _discretSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
                         if (borders.T2 != null && borders.T3 != null && borders.Score3 != null)
-                            if (_discretSignals[i].DeltaT.Ticks >= borders.T2 && _discretSignals[i].DeltaT.Ticks < borders.T3)
+                            if (_discretSignals[i].DeltaT.Ticks >= borders.T2 && _discretSignals[i].DeltaT.Ticks < borders.T3 && !_discretSignals[i].Tags[2])
                             {
                                 _mark -= borders.Score3;
-                                string str = _discretSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _discretSignals[i].Tags[2] = true;
+                                if (borders.Score3 != 0)
+                                {
+                                    string str = _discretSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
                         if (borders.T3 != null && borders.T4 != null && borders.Score4 != null)
-                            if (_discretSignals[i].DeltaT.Ticks >= borders.T3 && _discretSignals[i].DeltaT.Ticks < borders.T4)
+                            if (_discretSignals[i].DeltaT.Ticks >= borders.T3 && _discretSignals[i].DeltaT.Ticks < borders.T4 && !_discretSignals[i].Tags[3])
                             {
                                 _mark -= borders.Score4;
-                                string str = _discretSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _discretSignals[i].Tags[3] = true;
+                                if (borders.Score4 != 0)
+                                {
+                                    string str = _discretSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
                         if (borders.T4 != null && borders.Score5 != null)
-                            if (_discretSignals[i].DeltaT.Ticks >= borders.T4)
+                            if (_discretSignals[i].DeltaT.Ticks >= borders.T4 && !_discretSignals[i].Tags[4])
                             {
                                 _mark -= borders.Score5;
-                                string str = _discretSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _discretSignals[i].Tags[4] = true;
+                                if (borders.Score5 != 0)
+                                {
+                                    string str = _discretSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
-                        _discretSignals[i].IsChecked = true;
+                        if (_discretSignals[i].Tags.All(value => value))
+                            _discretSignals[i].IsChecked = true;
                         q.Add(new Log { Type = "Trace", Message = "TagId = " + lv.ExitId.ToString() });
-                        //await SendMessageAsync("TagId = " + lv.ExitId.ToString(), webSocket);
                         q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
-                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
                     }
                     else
                         _discretSignals[i].DeltaT = _discretSignals[i].DeltaT.Add(new TimeSpan(0, 0, 1));
@@ -385,50 +410,74 @@ namespace React.Server
                         {
                             var borders = _db.SelectTimeBordersWithDiscretId(_doubleDiscretSignals[i].Id, 3);
 
-                            if (_doubleDiscretSignals[i].DeltaT.Ticks < borders.T1)
+                            if (_doubleDiscretSignals[i].DeltaT.Ticks < borders.T1 && !_doubleDiscretSignals[i].Tags[0])
                             {
                                 _mark -= borders.Score1;
-                                string str = _doubleDiscretSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _doubleDiscretSignals[i].Tags[0] = true;
+                                if (borders.Score1 != 0)
+                                {
+                                    string str = _doubleDiscretSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
                             if (borders.T2 != null && borders.Score2 != null)
-                                if (_doubleDiscretSignals[i].DeltaT.Ticks >= borders.T1 && _doubleDiscretSignals[i].DeltaT.Ticks < borders.T2)
+                                if (_doubleDiscretSignals[i].DeltaT.Ticks >= borders.T1 && _doubleDiscretSignals[i].DeltaT.Ticks < borders.T2 && !_doubleDiscretSignals[i].Tags[1])
                                 {
                                     _mark -= borders.Score2;
-                                    string str = _doubleDiscretSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + "\n";
-                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    _doubleDiscretSignals[i].Tags[1] = true;
+                                    if (borders.Score2 != 0)
+                                    {
+                                        string str = _doubleDiscretSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + "\n";
+                                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                    }
                                 }
 
                             if (borders.T2 != null && borders.T3 != null && borders.Score3 != null)
-                                if (_doubleDiscretSignals[i].DeltaT.Ticks >= borders.T2 && _doubleDiscretSignals[i].DeltaT.Ticks < borders.T3)
+                                if (_doubleDiscretSignals[i].DeltaT.Ticks >= borders.T2 && _doubleDiscretSignals[i].DeltaT.Ticks < borders.T3 && !_doubleDiscretSignals[i].Tags[2])
                                 {
                                     _mark -= borders.Score3;
-                                    string str = _doubleDiscretSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + "\n";
-                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    _doubleDiscretSignals[i].Tags[2] = true;
+                                    if (borders.Score3 != 0)
+                                    {
+                                        string str = _doubleDiscretSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + "\n";
+                                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                    }
                                 }
 
                             if (borders.T3 != null && borders.T4 != null && borders.Score4 != null)
-                                if (_doubleDiscretSignals[i].DeltaT.Ticks >= borders.T3 && _doubleDiscretSignals[i].DeltaT.Ticks < borders.T4)
+                                if (_doubleDiscretSignals[i].DeltaT.Ticks >= borders.T3 && _doubleDiscretSignals[i].DeltaT.Ticks < borders.T4 && !_doubleDiscretSignals[i].Tags[3])
                                 {
                                     _mark -= borders.Score4;
-                                    string str = _doubleDiscretSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + "\n";
-                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    _doubleDiscretSignals[i].Tags[3] = true;
+                                    if (borders.Score4 != 0)
+                                    {
+                                        string str = _doubleDiscretSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + "\n";
+                                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                    }
                                 }
 
                             if (borders.T4 != null && borders.Score5 != null)
-                                if (_doubleDiscretSignals[i].DeltaT.Ticks >= borders.T4)
+                                if (_doubleDiscretSignals[i].DeltaT.Ticks >= borders.T4 && !_doubleDiscretSignals[i].Tags[4])
                                 {
                                     _mark -= borders.Score5;
-                                    string str = _doubleDiscretSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + "\n";
-                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    _doubleDiscretSignals[i].Tags[4] = true;
+                                    if (borders.Score5 != 0)
+                                    {
+                                        string str = _doubleDiscretSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + "\n";
+                                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                    }
                                 }
 
-                            _doubleDiscretSignals[i].IsChecked = true;
+                            if (_doubleDiscretSignals[i].Tags.All(value => value))
+                                _doubleDiscretSignals[i].IsChecked = true;
                             q.Add(new Log { Type = "Trace", Message = "TagId = " + lv.ExitId.ToString() });
-                            //await SendMessageAsync("TagId = " + lv.ExitId.ToString(), webSocket);
                             q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
-                            await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
                         }
                     }
                     catch (Exception ex)
@@ -511,50 +560,75 @@ namespace React.Server
                     {
                         var borders = _db.SelectTimeBordersWithDiscretId(_discretFromAnalogSignals[i].Id, 1);
 
-                        if (_discretFromAnalogSignals[i].DeltaT.Ticks < borders.T1)
+                        if (_discretFromAnalogSignals[i].DeltaT.Ticks < borders.T1 && !_discretFromAnalogSignals[i].Tags[0])
                         {
                             _mark -= borders.Score1;
-                            string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + "\n";
-                            await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                            _discretFromAnalogSignals[i].Tags[0] = true;
+                            if (borders.Score1 != 0)
+                            {
+                                string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + "\n";
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                            }
                         }
 
                         if (borders.T2 != null && borders.Score2 != null)
-                            if (_discretFromAnalogSignals[i].DeltaT.Ticks >= borders.T1 && _discretFromAnalogSignals[i].DeltaT.Ticks < borders.T2)
+                            if (_discretFromAnalogSignals[i].DeltaT.Ticks >= borders.T1 && _discretFromAnalogSignals[i].DeltaT.Ticks < borders.T2 && !_discretFromAnalogSignals[i].Tags[1])
                             {
                                 _mark -= borders.Score2;
-                                string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _discretFromAnalogSignals[i].Tags[1] = true;
+                                if (borders.Score2 != 0)
+                                {
+                                    string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
                         if (borders.T2 != null && borders.T3 != null && borders.Score3 != null)
-                            if (_discretFromAnalogSignals[i].DeltaT.Ticks >= borders.T2 && _discretFromAnalogSignals[i].DeltaT.Ticks < borders.T3)
+                            if (_discretFromAnalogSignals[i].DeltaT.Ticks >= borders.T2 && _discretFromAnalogSignals[i].DeltaT.Ticks < borders.T3 && !_discretFromAnalogSignals[i].Tags[2])
                             {
                                 _mark -= borders.Score3;
-                                string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _discretFromAnalogSignals[i].Tags[2] = true;
+                                if (borders.Score3 != 0)
+                                {
+                                    string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
                         if (borders.T3 != null && borders.T4 != null && borders.Score4 != null)
-                            if (_discretFromAnalogSignals[i].DeltaT.Ticks >= borders.T3 && _discretFromAnalogSignals[i].DeltaT.Ticks < borders.T4)
+                            if (_discretFromAnalogSignals[i].DeltaT.Ticks >= borders.T3 && _discretFromAnalogSignals[i].DeltaT.Ticks < borders.T4 && !_discretFromAnalogSignals[i].Tags[3])
                             {
                                 _mark -= borders.Score4;
-                                string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _discretFromAnalogSignals[i].Tags[3] = true;
+                                if (borders.Score4 != 0)
+                                {
+                                    string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
                         if (borders.T4 != null && borders.Score5 != null)
-                            if (_discretFromAnalogSignals[i].DeltaT.Ticks >= borders.T4)
+                            if (_discretFromAnalogSignals[i].DeltaT.Ticks >= borders.T4 && !_discretFromAnalogSignals[i].Tags[4])
                             {
                                 _mark -= borders.Score5;
-                                string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _discretFromAnalogSignals[i].Tags[4] = true;
+                                if (borders.Score5 != 0)
+                                {
+                                    string str = _discretFromAnalogSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
-                        _discretFromAnalogSignals[i].IsChecked = true;
+                        if (_discretFromAnalogSignals[i].Tags.All(value => value))
+                            _discretFromAnalogSignals[i].IsChecked = true;
                         q.Add(new Log { Type = "Trace", Message = "TagId = " + _discretFromAnalogSignals[i].ExitId.ToString() });
                         //await SendMessageAsync("TagId = " + _discretFromAnalogSignals[i].ExitId.ToString(), webSocket);
                         q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
-                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
                     }
                     else
                         _discretFromAnalogSignals[i].DeltaT = _discretFromAnalogSignals[i].DeltaT.Add(new TimeSpan(0, 0, 1));
@@ -593,12 +667,7 @@ namespace React.Server
 
                             try
                             {
-                                if (!_groupOfDiscretSignals[i].EndLogicVariables[j].IsChecked)
-                                {
-                                    bool value = await scadaVConnection.ReadDiscretFromServer(_groupOfDiscretSignals[i].EndLogicVariables[j].ExitId);
-                                    if (value)
-                                        _groupOfDiscretSignals[i].EndLogicVariables[j].IsChecked = true;
-                                }
+                                _groupOfDiscretSignals[i].EndLogicVariables[j].IsChecked = await scadaVConnection.ReadDiscretFromServer(_groupOfDiscretSignals[i].EndLogicVariables[j].ExitId);
                             }
                             catch (Exception ex)
                             {
@@ -609,46 +678,36 @@ namespace React.Server
 
                         for (int j = 0; j < _groupOfDiscretSignals[i].EndSignals.Count; j++)
                         {
-                            if (!_groupOfDiscretSignals[i].EndSignals[j].IsChecked)
+                            try
                             {
-                                try
+                                ScadaVConnection scadaVConnection = new ScadaVConnection();
+                                switch (_groupOfDiscretSignals[i].EndSignals[j].BaseNum)
                                 {
-                                    ScadaVConnection scadaVConnection = new ScadaVConnection();
-                                    switch (_groupOfDiscretSignals[i].EndSignals[j].BaseNum)
-                                    {
-                                        case 1:
-                                            scadaVConnection = scadaVConnection1;
-                                            break;
-                                        case 2:
-                                            scadaVConnection = scadaVConnection2;
-                                            break;
-                                        case 3:
-                                            scadaVConnection = scadaVConnection3;
-                                            break;
-                                    }
-
-                                    var res = await scadaVConnection.ReadVariableFromServer(_groupOfDiscretSignals[i].EndSignals[j].ExitId);
-                                    bool value = false;
-
-                                    if (_groupOfDiscretSignals[i].EndSignals[j].Const.ToString().Contains('.'))
-                                    {
-                                        if (Convert.ToInt32(res.Value) == _groupOfDiscretSignals[i].EndSignals[j].Const)
-                                            value = true;
-                                    }
-                                    else
-                                    {
-                                        if (Convert.ToSingle(res.Value) == _groupOfDiscretSignals[i].EndSignals[j].Const)
-                                            value = true;
-                                    }
-
-                                    if (value)
-                                        _groupOfDiscretSignals[i].EndSignals[j].IsChecked = true;
+                                    case 1:
+                                        scadaVConnection = scadaVConnection1;
+                                        break;
+                                    case 2:
+                                        scadaVConnection = scadaVConnection2;
+                                        break;
+                                    case 3:
+                                        scadaVConnection = scadaVConnection3;
+                                        break;
                                 }
-                                catch (Exception ex)
-                                {
-                                    q.Add(new Log { Type = "Error", Message = ex.Message });
-                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
-                                }
+
+                                var res = await scadaVConnection.ReadVariableFromServer(_groupOfDiscretSignals[i].EndSignals[j].ExitId);
+                                bool value = false;
+
+                                if (_groupOfDiscretSignals[i].EndSignals[j].Const.ToString().Contains('.'))
+                                    value = Convert.ToInt32(res.Value) == _groupOfDiscretSignals[i].EndSignals[j].Const;
+                                else
+                                    value = Convert.ToSingle(res.Value) == _groupOfDiscretSignals[i].EndSignals[j].Const;
+
+                                _groupOfDiscretSignals[i].EndSignals[j].IsChecked = value;
+                            }
+                            catch (Exception ex)
+                            {
+                                q.Add(new Log { Type = "Error", Message = ex.Message });
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                             }
                         }
                     }
@@ -661,48 +720,73 @@ namespace React.Server
 
                         var borders = _db.SelectTimeBordersWithDiscretId(_groupOfDiscretSignals[i].Id, 2);
 
-                        if (_groupOfDiscretSignals[i].DeltaT.Ticks < borders.T1)
+                        if (_groupOfDiscretSignals[i].DeltaT.Ticks < borders.T1 && !_groupOfDiscretSignals[i].Tags[0])
                         {
                             _mark -= borders.Score1;
-                            string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + "\n";
-                            await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                            _groupOfDiscretSignals[i].Tags[0] = true;
+                            if (borders.Score1 != 0)
+                            {
+                                string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + "\n";
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                            }
                         }
 
                         if (borders.T2 != null && borders.Score2 != null)
-                            if (_groupOfDiscretSignals[i].DeltaT.Ticks >= borders.T1 && _groupOfDiscretSignals[i].DeltaT.Ticks < borders.T2)
+                            if (_groupOfDiscretSignals[i].DeltaT.Ticks >= borders.T1 && _groupOfDiscretSignals[i].DeltaT.Ticks < borders.T2 && !_groupOfDiscretSignals[i].Tags[1])
                             {
                                 _mark -= borders.Score2;
-                                string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _groupOfDiscretSignals[i].Tags[1] = true;
+                                if (borders.Score2 != 0)
+                                {
+                                    string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
                         if (borders.T2 != null && borders.T3 != null && borders.Score3 != null)
-                            if (_groupOfDiscretSignals[i].DeltaT.Ticks >= borders.T2 && _groupOfDiscretSignals[i].DeltaT.Ticks < borders.T3)
+                            if (_groupOfDiscretSignals[i].DeltaT.Ticks >= borders.T2 && _groupOfDiscretSignals[i].DeltaT.Ticks < borders.T3 && !_groupOfDiscretSignals[i].Tags[2])
                             {
                                 _mark -= borders.Score3;
-                                string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _groupOfDiscretSignals[i].Tags[2] = true;
+                                if (borders.Score3 != 0)
+                                {
+                                    string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
                         if (borders.T3 != null && borders.T4 != null && borders.Score4 != null)
-                            if (_groupOfDiscretSignals[i].DeltaT.Ticks >= borders.T3 && _groupOfDiscretSignals[i].DeltaT.Ticks < borders.T4)
+                            if (_groupOfDiscretSignals[i].DeltaT.Ticks >= borders.T3 && _groupOfDiscretSignals[i].DeltaT.Ticks < borders.T4 && !_groupOfDiscretSignals[i].Tags[3])
                             {
                                 _mark -= borders.Score4;
-                                string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _groupOfDiscretSignals[i].Tags[3] = true;
+                                if (borders.Score4 != 0)
+                                {
+                                    string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
                         if (borders.T4 != null && borders.Score5 != null)
-                            if (_groupOfDiscretSignals[i].DeltaT.Ticks >= borders.T4)
+                            if (_groupOfDiscretSignals[i].DeltaT.Ticks >= borders.T4 && !_groupOfDiscretSignals[i].Tags[4])
                             {
                                 _mark -= borders.Score5;
-                                string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + "\n";
-                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                _groupOfDiscretSignals[i].Tags[4] = true;
+                                if (borders.Score5 != 0)
+                                {
+                                    string str = _groupOfDiscretSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + "\n";
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
+                                    await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
+                                }
                             }
 
-                        _groupOfDiscretSignals[i].IsChecked = true;
+                        if (_groupOfDiscretSignals[i].Tags.All(value => value))
+                            _groupOfDiscretSignals[i].IsChecked = true;
                         q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
-                        await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, _mark.ToString() + " - текущая оценка.");
                     }
                     else
                         _groupOfDiscretSignals[i].DeltaT = _groupOfDiscretSignals[i].DeltaT.Add(new TimeSpan(0, 0, 1));
@@ -874,9 +958,10 @@ namespace React.Server
                                 await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, ex.Message);
                             }
                         }
-                        else if (_operationsWithCondition[i].ValueToWrite.Contains('.'))
+                        else if (_operationsWithCondition[i].ValueToWrite.Contains('.') || _operationsWithCondition[i].ValueToWrite.Contains(','))
                         {
-                            valFloat = Convert.ToSingle(_operationsWithCondition[i].ValueToWrite);
+                            _operationsWithCondition[i].ValueToWrite = _operationsWithCondition[i].ValueToWrite.Replace('.', ',');
+                            valFloat = float.Parse(_operationsWithCondition[i].ValueToWrite);
                             try
                             {
                                 result = await scadaVConnection.WriteVariable(_operationsWithCondition[i].ExitId, valFloat, DateTime.Now);
@@ -1162,7 +1247,7 @@ namespace React.Server
                                 _mark -= f.Score;
                                 str = analogSignals[i].Name + " - " + f.Score + " " + getWord(f.Score) + "\n";
                                 _criteriasForReport1.Add(str);
-                                await _hubContext.Clients.All.SendAsync(Receive2FunctionName, str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
                         }
                         else if (analogSignals[i].Func == "Наличие выхода за коридор")
@@ -1175,7 +1260,7 @@ namespace React.Server
                                 _mark -= f.Score;
                                 str = analogSignals[i].Name + " - " + f.Score + " " + getWord(f.Score) + "\n";
                                 _criteriasForReport1.Add(str);
-                                await _hubContext.Clients.All.SendAsync(Receive2FunctionName, str);
+                                await _hubContext.Clients.All.SendAsync(ReceiveFunctionName, str);
                             }
                         }
                     }

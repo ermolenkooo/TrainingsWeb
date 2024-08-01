@@ -3,6 +3,7 @@ import { getTrainings, stopTraining } from '../../api/domains/trainingApi';
 import './Trainings.sass';
 import { DescriptionModal } from '../modal/descriptionModal/DescriptionModal';
 import { SettingsModal } from '../modal/settingsModal/SettingsModal';
+import { ReportModal } from '../modal/reportModal/ReportModal';
 import { usePopup } from '../modal/usePopup';
 import { AppContext } from '../../api/contexts/appContext/AppContext';
 import * as signalR from "@microsoft/signalr";
@@ -10,63 +11,64 @@ import * as signalR from "@microsoft/signalr";
 export const Trainings = () => {
     const [trainings, trainingsChange] = useState([]);
     /*const [hubConnection, setHubConnection] = useState(null);*/
-    const { addMessage, setMessages, addMessage2, setMessages2 } = useContext(AppContext);
+    const { addMessage, setMessages, addMessage2, setMessages2, removedConnection, hubConnection } = useContext(AppContext);
     const [selectedTrainingId, setSelectedTrainingId] = useState(() => {
         return parseInt(localStorage.getItem('selectedTrainingId')) || null;
     });
     const [isShowingDescriptionModal, toggleDescriptionModal] = usePopup();
     const [isShowingSettingsModal, toggleSettingsModal] = usePopup();
+    const [isShowingReportModal, toggleReportModal] = usePopup();
 
     useEffect(() => {
         getTrainings().then(data => {
             trainingsChange(data.response);
         });
 
-        const removedConnection = new signalR.HubConnectionBuilder()
-            .withUrl('/hub')
-            .build();
+        //const removedConnection = new signalR.HubConnectionBuilder()
+        //    .withUrl('/hub')
+        //    .build();
 
-        removedConnection.start()
-            .then(() => {
-                console.log('SignalR Connected Removed');
-            })
-            .catch((error) => {
-                console.error(error);
-            });
+        //removedConnection.start()
+        //    .then(() => {
+        //        console.log('SignalR Connected Removed');
+        //    })
+        //    .catch((error) => {
+        //        console.error(error);
+        //    });
 
-        removedConnection.on("StartRemoved", () => {
-            hubConnection.stop();
-            setMessages([]);
-            setMessages2([]);
-        });
+        //removedConnection.on("StartRemoved", () => {
+        //    hubConnection.stop();
+        //    setMessages([]);
+        //    setMessages2([]);
+        //});
 
-        removedConnection.on("ReceiveRemoved", message => {
-            addMessage(message);
-        });
+        //removedConnection.on("ReceiveRemoved", message => {
+        //    addMessage(message);
+        //});
 
-        removedConnection.on("Receive2Removed", message => {
-            addMessage2(message);
-        });
+        //removedConnection.on("Receive2Removed", message => {
+        //    addMessage2(message);
+        //});
 
-        removedConnection.on("ReceiveMarkRemoved", message => {
-            localStorage.setItem('selectedTrainingMark', message);
-        });
+        //removedConnection.on("ReceiveMarkRemoved", message => {
+        //    localStorage.setItem('selectedTrainingMark', message);
+        //});
 
-        removedConnection.on("ReceiveStatusRemoved", message => {
-            localStorage.setItem('selectedTrainingStatus', message);
-        });
+        //removedConnection.on("ReceiveStatusRemoved", message => {
+        //    localStorage.setItem('selectedTrainingStatus', message);
+        //});
 
-        removedConnection.on("TrainingIsEndRemoved", () => {
-            //removedConnection.stop();
-        });
+        //removedConnection.on("TrainingIsEndRemoved", () => {
+        //    //removedConnection.stop();
+        //});
 
-        removedConnection.onclose(error => {
-            console.log('SignalR Connection Removed closed', error);
-        });
+        //removedConnection.onclose(error => {
+        //    console.log('SignalR Connection Removed closed', error);
+        //});
 
-        return () => {
-            removedConnection.stop();
-        };
+        //return () => {
+        //    removedConnection.stop();
+        //};
 
     }, []);
 
@@ -77,9 +79,9 @@ export const Trainings = () => {
         localStorage.setItem('selectedTrainingMark', trainings.find(training => training.id === id).mark);
     };
 
-    const hubConnection = new signalR.HubConnectionBuilder()
-        .withUrl("/hub")
-        .build();
+    //const hubConnection = new signalR.HubConnectionBuilder()
+    //    .withUrl("/hub")
+    //    .build();
 
     const setupSignalRConnection = () => {
         //const connection = new signalR.HubConnectionBuilder()
@@ -169,6 +171,7 @@ export const Trainings = () => {
             <div className='trainings-page'>
                 <DescriptionModal show={isShowingDescriptionModal} onClose={toggleDescriptionModal} data={trainings.length > 0 && selectedTrainingId != null ? trainings.find(training => training.id === selectedTrainingId).description : ''} />
                 <SettingsModal show={isShowingSettingsModal} onClose={toggleSettingsModal} />
+                <ReportModal show={isShowingReportModal} onClose={toggleReportModal} />
                 <div className='trainings-page__col'>
                     <p className='trainings-page__title'>Перечень тренировок</p>
                     {
@@ -184,6 +187,7 @@ export const Trainings = () => {
                     <button className='trainings-page__button' onClick={toggleDescriptionModal}>Открыть описание тренировки</button>
                     <button className='trainings-page__button' onClick={() => startTrainingClick()}>Начать запись сценария и оценку</button>
                     <button className='trainings-page__button' onClick={() => endTrainingClick()}>Завершить оценку</button>
+                    {/*<button className='trainings-page__button' onClick={toggleReportModal}>Завершить оценку</button>*/}
                     <button className='trainings-page__button'>Ожидать запуска стартовой марки</button>
                     <button className='trainings-page__button' onClick={toggleSettingsModal}>Настройки</button>
                 </div>

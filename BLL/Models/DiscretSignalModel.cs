@@ -15,6 +15,7 @@ namespace BLL.Models
         public string Name { get; set; }
         public TimeSpan DeltaT { get; set; }
         public bool IsChecked { get; set; } = false;
+        public bool[] Tags { get; set; }
 
         public DiscretSignalModel(DiscretSignal d) 
         {
@@ -22,6 +23,7 @@ namespace BLL.Models
             TrainingId = d.TrainingId;
             LogicVariableId = d.LogicVariableId;
             Name = d.Name;
+            Tags = new bool[5];
         }
     }
 }

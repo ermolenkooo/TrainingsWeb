@@ -16,16 +16,24 @@ builder.Services.AddSignalR(options =>
     options.EnableDetailedErrors = true; // ¬ключить подробные ошибки, чтобы увидеть, что происходит
 });
 
+//builder.Services.AddCors(options =>
+//{
+//    options.AddDefaultPolicy(
+//        policy =>
+//        {
+//            //policy.WithOrigins("https://localhost:5173")
+//            policy.SetIsOriginAllowed(_ => true)
+//            .AllowAnyHeader()
+//            .AllowAnyMethod();
+//        });
+//});
+
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(
-        policy =>
-        {
-            //policy.WithOrigins("https://localhost:5173")
-            policy.SetIsOriginAllowed(_ => true)
-            .AllowAnyHeader()
-            .AllowAnyMethod();
-        });
+    options.AddPolicy("AllowAll",
+        builder => builder.AllowAnyOrigin()
+                          .AllowAnyMethod()
+                          .AllowAnyHeader());
 });
 
 // Add services to the container.

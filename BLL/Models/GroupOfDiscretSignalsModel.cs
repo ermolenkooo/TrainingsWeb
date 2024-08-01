@@ -21,6 +21,7 @@ namespace BLL.Models
         public List<DiscretFromAnalogSignalModel> StartSignals { get; set; } = new List<DiscretFromAnalogSignalModel>();
         public List<LogicVariableModel> EndLogicVariables { get; set; } = new List<LogicVariableModel>();
         public List<DiscretFromAnalogSignalModel> EndSignals { get; set; } = new List<DiscretFromAnalogSignalModel>();
+        public bool[] Tags { get; set; }
 
         public GroupOfDiscretSignalsModel(GroupOfDiscretSignals g)
         {
@@ -29,6 +30,7 @@ namespace BLL.Models
             StartSubGroupId = g.StartSubGroupId;
             EndSubGroupId = g.EndSubGroupId;
             Name = g.Name;
+            Tags = new bool[5];
         }
     }
 }

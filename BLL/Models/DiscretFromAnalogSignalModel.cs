@@ -22,6 +22,7 @@ namespace BLL.Models
         public int BaseNum { get; set; }
         public TimeSpan DeltaT { get; set; } = new TimeSpan(0);
         public bool IsChecked { get; set; } = false;
+        public bool[] Tags { get; set; }
 
         public DiscretFromAnalogSignalModel() { }
 
@@ -38,6 +39,7 @@ namespace BLL.Models
             Const = d.Const;
             IsInGroup = d.IsInGroup;
             BaseNum = d.BaseNum;
+            Tags = new bool[5];
         }
     }
 }
