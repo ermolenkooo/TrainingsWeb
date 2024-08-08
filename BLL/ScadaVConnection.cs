@@ -298,7 +298,10 @@ namespace BLL
             IReadOnlyCollection<TagValue> resultCollection = res.values;
             List<TagValue> values = resultCollection.ToList();
             await serverConnection.Service.UnsubscribeRead(groupId);
-            return values[values.Count - 1];
+            if (values.Count != 0)
+                return values[values.Count - 1];
+            else
+                throw new Exception("В результате чтения из шлюза по тегу " + tagId + " вернулась пустая коллекция");
         }
 
         public async Task<bool> ReadDiscretFromServer(int tagId)

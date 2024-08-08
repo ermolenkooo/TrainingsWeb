@@ -33,10 +33,24 @@
       display: flex
       flex-direction: column
 
+      &__select
+        border: $border-width solid $border-color
+        border-radius: 5px
+        background-color: $white
+        color: $gray
+        font-size: $normal-font-size
+        padding-bottom: 10px
+        padding-top: 10px
+        margin-bottom: $after-element-margin
+        margin-top: 10px
+        width: 100%
+        outline: none
+        cursor: pointer
+
       &__text
         display: inline-block
         color: $gray
-        margin-bottom: 0
+        margin: $small-margin
         font-size: $normal-font-size
         font-weight: $font-weight-regular
 
@@ -55,7 +69,7 @@
       width: 100%
       margin-top: 0
       display: flex
-      justify-content: flex-end
+      justify-content: center
 
       &__cancel-btn
         background: $blue-light-gray
