@@ -9,43 +9,43 @@ namespace BLL
     public class TimerManager
     {
         public delegate void TimerTickDelegate();
-        public static event TimerTickDelegate TimerTick;
-        public static event TimerTickDelegate TimerForDiscretsTick;
+        public event TimerTickDelegate TimerTick;
+        public event TimerTickDelegate TimerForDiscretsTick;
 
-        public static void Start()
+        public void Start()
         {
             setTimer();
             timer.Start();
         }
 
-        public static void StartTimerForDiscrets()
+        public void StartTimerForDiscrets()
         {
             setTimerForDiscretSignals();
             timerForDiscretSignals.Start();
         }
 
-        public static void Stop()
+        public void Stop()
         {
             timer.Stop();
         }
 
-        public static void StopTimerForDiscrets()
+        public void StopTimerForDiscrets()
         {
             timerForDiscretSignals.Stop();
         }
 
-        private static System.Timers.Timer timer;
-        private static System.Timers.Timer timerForDiscretSignals;
+        private System.Timers.Timer timer;
+        private System.Timers.Timer timerForDiscretSignals;
 
-        private static void setTimer()
+        private void setTimer()
         {
-            timer = new System.Timers.Timer(1500);
+            timer = new System.Timers.Timer(1000);
             timer.Elapsed += OnTimedEvent;
             timer.AutoReset = true;
             timer.Enabled = true;
         }
 
-        private static void setTimerForDiscretSignals()
+        private void setTimerForDiscretSignals()
         {
             timerForDiscretSignals = new System.Timers.Timer(1000);
             timerForDiscretSignals.Elapsed += OnTimedEventForDiscrets;
@@ -53,12 +53,12 @@ namespace BLL
             timerForDiscretSignals.Enabled = true;
         }
 
-        private static void OnTimedEvent(Object source, ElapsedEventArgs e)
+        private void OnTimedEvent(Object source, ElapsedEventArgs e)
         {
             TimerTick();
         }
 
-        private static void OnTimedEventForDiscrets(Object source, ElapsedEventArgs e)
+        private void OnTimedEventForDiscrets(Object source, ElapsedEventArgs e)
         {
             TimerForDiscretsTick();
         }

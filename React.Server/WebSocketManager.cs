@@ -117,8 +117,8 @@ namespace React.Server
             thread = new Thread(Consumer);
             thread.Start();
 
-            TimerManager.TimerTick += async () => await CheckAllAsync(webSocket);
-            TimerManager.Start();
+            //TimerManager.TimerTick += async () => await CheckAllAsync(webSocket);
+            //TimerManager.Start();
         }
 
         [ApiExplorerSettings(IgnoreApi = true)]
@@ -940,7 +940,7 @@ namespace React.Server
             statusTraining = 1;
             if (_selectedTraining != null)
             {
-                TimerManager.Stop();
+                //TimerManager.Stop();
                 DateTime endTime = DateTime.Now;
                 string str;
 

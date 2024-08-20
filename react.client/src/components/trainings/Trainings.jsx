@@ -11,8 +11,8 @@ import * as signalR from "@microsoft/signalr";
 
 export const Trainings = () => {
     const [trainings, trainingsChange] = useState([]);
-    const [criteriasWithMarks, criteriasWithMarksChange] = useState([]);
-    const [criteriasWithMarks2, criteriasWithMarks2Change] = useState([]);
+    const { criteriasWithMarks, criteriasWithMarksChange } = useContext(AppContext);
+    const { criteriasWithMarks2, criteriasWithMarks2Change } = useContext(AppContext);
     const [selectedReportType, setSelectedReportType] = useState('');
     const [selectedTrainingDate, setSelectedTrainingDate] = useState(() => {
         return localStorage.getItem('selectedTrainingDate') || null;
@@ -59,6 +59,8 @@ export const Trainings = () => {
                 hubConnection.on("Start", function () {
                     setMessages([]);
                     setMessages2([]);
+                    criteriasWithMarksChange([]);
+                    criteriasWithMarks2Change([]);
                 });
 
                 hubConnection.on("Receive", function (message) {
@@ -70,11 +72,15 @@ export const Trainings = () => {
                 });
 
                 hubConnection.on("ReceiveCriterias1", function (message) {
-                    setItems((prevItems) => [...prevItems, message]);
+                    var array = criteriasWithMarks;
+                    array.push(message);
+                    criteriasWithMarksChange(array);
                 });
 
                 hubConnection.on("ReceiveCriterias2", function (message) {
-                    setItems((prevItems) => [...prevItems, message]);
+                    var array = criteriasWithMarks2;
+                    array.push(message);
+                    criteriasWithMarks2Change(array);
                 });
 
                 hubConnection.on("ReceiveMark", function (message) {

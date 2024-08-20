@@ -57,8 +57,6 @@ export const Mark = () => {
                         <p className='mark-page__title'>Итоговая оценка: </p>
                         <p className='mark-page__text'> {selectedTrainingMark} </p>
                     </div>
-                    <button className='mark-page__button' onClick={() => alert("Создать отчёт для противоаварийной тренировки")}>Создать отчёт для противоаварийной тренировки</button>
-                    <button className='mark-page__button' onClick={() => alert("Создать отчёт для ведомости пуска и остановка")}>Создать отчёт для ведомости пуска и остановка</button>
                 </div>
                 <div className='mark-page__col'>
                     <p className='mark-page__title'>Снятие баллов</p>

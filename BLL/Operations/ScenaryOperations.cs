@@ -58,8 +58,8 @@ namespace BLL.Operations
             thread = new Thread(Consumer);
             thread.Start();
 
-            TimerManager.TimerTick += async () => await CheckAllAsync();
-            TimerManager.Start();
+            //TimerManager.TimerTick += async () => await CheckAllAsync();
+            //TimerManager.Start();
         }
 
         private void Consumer()
@@ -847,7 +847,7 @@ namespace BLL.Operations
         {
             if (_selectedTraining != null)
             {
-                TimerManager.Stop();
+                //TimerManager.Stop();
                 DateTime endTime = DateTime.Now;
                 string str;
 

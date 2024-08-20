@@ -7,22 +7,11 @@ export const AppProvider = ({ children }) => {
     const [selectedTrainingId, setSelectedTrainingId] = useState(0);
     const [messages, setMessages] = useState([]);
     const [messages2, setMessages2] = useState([]);
-    //const [removedConnection, setRemovedConnection] = useState(null);
+    const [criteriasWithMarks, criteriasWithMarksChange] = useState([]);
+    const [criteriasWithMarks2, criteriasWithMarks2Change] = useState([]);
     const connectionRef = useRef(null); // Используем useRef для хранения соединения
 
-    //const removedConnection = new HubConnectionBuilder()
-    //    .withUrl('/hub')
-    //    //.withAutomaticReconnect()
-    //    .build();
-
     useEffect(() => {
-        //const connection = new HubConnectionBuilder()
-        //    .withUrl('/hub')
-        //    .withAutomaticReconnect()
-        //    .build();
-
-        //setRemovedConnection(connection);
-
         if (connectionRef.current) {
             return;
         }
@@ -37,8 +26,6 @@ export const AppProvider = ({ children }) => {
 
         connectionRef.current = connection; // Сохраняем соединение в ref
 
-        //setRemovedConnection(connection); // Сохраняем соединение в состояния
-
         const startConnection = async () => {
             try {
                 await connection.start();
@@ -49,15 +36,6 @@ export const AppProvider = ({ children }) => {
                 setTimeout(startConnection, 5000);
             }
         };
-
-        //connection.start()
-        //    .then(() => {
-        //        console.log('SignalR Connected Removed');
-        //    })
-        //    .catch((error) => {
-        //        console.error(error);
-        //        setTimeout(() => startConnection(), 5000);
-        //    });
 
         connection.on("StartRemoved", () => {
             hubConnection.stop();
@@ -88,7 +66,6 @@ export const AppProvider = ({ children }) => {
 
         connection.onclose(error => {
             console.log('SignalR Connection Removed closed', error);
-            //setTimeout(startConnection, 5000);
         });
 
         startConnection();
@@ -113,7 +90,8 @@ export const AppProvider = ({ children }) => {
     };
 
     return (
-        <AppContext.Provider value={{ messages, addMessage, setMessages, messages2, addMessage2, setMessages2, removedConnection: connectionRef.current, hubConnection }}>
+        <AppContext.Provider value={{ messages, addMessage, setMessages, messages2, addMessage2, setMessages2, removedConnection: connectionRef.current, hubConnection,
+            criteriasWithMarks, criteriasWithMarksChange, criteriasWithMarks2, criteriasWithMarks2Change }}>
             {children}
         </AppContext.Provider>
     );
