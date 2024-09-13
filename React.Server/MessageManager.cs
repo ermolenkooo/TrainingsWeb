@@ -8,11 +8,14 @@ using System.Threading;
 using System;
 using System.Reflection;
 using DAL.Entities;
+using NLog;
 
 namespace React.Server
 {
     public class MessageManager
     {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         //необходимые подключения
         private IHubContext<MessageHub> _hubContext;
         private TrainingDbOperations _db;
@@ -62,7 +65,6 @@ namespace React.Server
         //установка начальных настроек
         public void SetSettings(IHubContext<MessageHub> hubContext, MyOptions options, bool isRemoved)
         {
-            _timer = new TimerManager();
             StatusTraining = 0;
             _hubContext = hubContext;
             _db = new TrainingDbOperations(options);
@@ -118,6 +120,9 @@ namespace React.Server
         //начало выполнения сценария
         private async Task BeginScenary(int id)
         {
+            //await scadaVConnection1.ReadDiscretFromServer(729769);
+            await _hubContext.Clients.All.SendAsync("ReceiveIdRemoved", id);
+
             //получаем выбранную тренировку по айди
             _selectedTraining = _db.SelectTrainingById(id);
             _mark = _selectedTraining.Mark;
@@ -137,6 +142,7 @@ namespace React.Server
             await PerformSelectedTrainingOperations();
 
             //запускаем таймер, который через каждую секунду будет вызывать функцию проверки всех сигналов
+            _timer = new TimerManager();
             _timer.TimerTick += async () => await CheckAllAsync();
             await CheckAllAsync();
             _timer.Start();
@@ -157,7 +163,48 @@ namespace React.Server
         {
             //получаем все операции, относящиеся к данной тренировке, и запускаем их в параллельном цикле
             var operations = _db.SelectOperationsWithTrainingId(_selectedTraining.Id);
-            Parallel.For(0, operations.Count(), (i) => PerformOperationAsync(operations[i]));
+            for (int i = 0; i < operations.Count; i++)
+            {
+                int index = i;
+                //создаём новую задачу
+                var task = new Task(async () =>
+                {
+                    try
+                    {
+                        //проверяем не отменена ли задача
+                        _cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                        //вызываем функцию проверки дискретного сигнала
+                        await PerformOperationAsync(operations[index]);
+                        //снова проверяем на отмену
+                        _cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                    }
+                    catch (Exception ex)
+                    {
+                        //если в ходе выполнения возникла ошибка
+                        if (!_isException)
+                        {
+                            _isException = true;
+                            //останавливаем таймер
+                            _timer?.Stop();
+                            //отменяем задачи
+                            _cancellationTokenSource.Cancel();
+
+                            //отправляем сообщение об ошибке
+                            await _hubContext.Clients.All.SendAsync(receiveFunctionName, ex.Message);
+
+                            //ожидаем завершения всех задач
+                            foreach (var t in _tasks)
+                                if (t.Id != Task.CurrentId && !t.IsCanceled)
+                                    await t;
+                            //вызываем функцию окончания тренировки
+                            await TrainingEnd(false);
+                        }
+                    }
+                }, _cancellationTokenSource.Token);
+                //запускаем задачу
+                task.Start();
+                _tasks.Add(task);
+            }
         }
 
         //выполнение одной операции
@@ -183,8 +230,17 @@ namespace React.Server
                     break;
             }
 
+            //выдержка времени перед операцией
             if (operation.TimePause.Ticks > 0)
-                await Task.Delay(operation.TimePause); //выдержка времени перед операцией
+            {
+                var time = operation.TimePause;
+                while (time != TimeSpan.Zero)
+                {
+                    _cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                    Thread.Sleep(1000);
+                    time = time.Subtract(new TimeSpan(0, 0, 1));
+                }
+            }
 
             //результат записи
             bool result;
@@ -286,16 +342,24 @@ namespace React.Server
 
                             //ожидаем завершения всех задач
                             foreach (var t in _tasks)
-                                if (t.Id != Task.CurrentId) 
-                                    await t;
+                                if (t.Id != Task.CurrentId && !t.IsCanceled)
+                                    try 
+                                    { 
+                                        await t; 
+                                    }
+                                    catch
+                                    { }
                             //вызываем функцию окончания тренировки
                             await TrainingEnd(false);
                         }
                     }
                 }, _cancellationTokenSource.Token);
                 //запускаем задачу
-                task.Start();
-                _tasks.Add(task);
+                if (!task.IsCompleted && !task.IsCanceled)
+                {
+                    task.Start();
+                    _tasks.Add(task);
+                }
             }
 
             //двойные дискретные сигналы
@@ -330,16 +394,24 @@ namespace React.Server
 
                             //ожидаем завершения всех задач
                             foreach (var t in _tasks)
-                                if (t.Id != Task.CurrentId)
-                                    await t;
+                                if (t.Id != Task.CurrentId && !t.IsCanceled)
+                                    try
+                                    {
+                                        await t;
+                                    }
+                                    catch
+                                    { }
                             //вызываем функцию окончания тренировки
                             await TrainingEnd(false);
                         }
                     }
                 }, _cancellationTokenSource.Token);
                 //запускаем задачу
-                task.Start();
-                _tasks.Add(task);
+                if (!task.IsCompleted && !task.IsCanceled)
+                {
+                    task.Start();
+                    _tasks.Add(task);
+                }
             }
 
             //дискретные сигналы, полученные из аналоговых
@@ -374,16 +446,24 @@ namespace React.Server
 
                             //ожидаем завершения всех задач
                             foreach (var t in _tasks)
-                                if (t.Id != Task.CurrentId)
-                                    await t;
+                                if (t.Id != Task.CurrentId && !t.IsCanceled)
+                                    try
+                                    {
+                                        await t;
+                                    }
+                                    catch
+                                    { }
                             //вызываем функцию окончания тренировки
                             await TrainingEnd(false);
                         }
                     }
                 }, _cancellationTokenSource.Token);
                 //запускаем задачу
-                task.Start();
-                _tasks.Add(task);
+                if (!task.IsCompleted && !task.IsCanceled)
+                {
+                    task.Start();
+                    _tasks.Add(task);
+                }
             }
 
             //группы дискретных сигналов
@@ -418,16 +498,24 @@ namespace React.Server
 
                             //ожидаем завершения всех задач
                             foreach (var t in _tasks)
-                                if (t.Id != Task.CurrentId)
-                                    await t;
+                                if (t.Id != Task.CurrentId && !t.IsCanceled)
+                                    try
+                                    {
+                                        await t;
+                                    }
+                                    catch
+                                    { }
                             //вызываем функцию окончания тренировки
                             await TrainingEnd(false);
                         }
                     }
                 }, _cancellationTokenSource.Token);
                 //запускаем задачу
-                task.Start();
-                _tasks.Add(task);
+                if (!task.IsCompleted && !task.IsCanceled)
+                {
+                    task.Start();
+                    _tasks.Add(task);
+                }
             }
 
             //операции с условием
@@ -462,16 +550,24 @@ namespace React.Server
 
                             //ожидаем завершения всех задач
                             foreach (var t in _tasks)
-                                if (t.Id != Task.CurrentId)
-                                    await t;
+                                if (t.Id != Task.CurrentId && !t.IsCanceled)
+                                    try
+                                    {
+                                        await t;
+                                    }
+                                    catch
+                                    { }
                             //вызываем функцию окончания тренировки
                             await TrainingEnd(false);
                         }
                     }
                 }, _cancellationTokenSource.Token);
                 //запускаем задачу
-                task.Start();
-                _tasks.Add(task);
+                if (!task.IsCompleted && !task.IsCanceled)
+                {
+                    task.Start();
+                    _tasks.Add(task);
+                }
             }
         }
 
@@ -507,7 +603,7 @@ namespace React.Server
                     //вычитаем баллы в зависимости от диапазона, в котором находится текущее значение времени
                     if (_discretSignals[i].DeltaT.Ticks < borders.T1 && !_discretSignals[i].Tags[0])
                     {
-                        _mark -= borders.Score1;
+                        _mark -= borders.Score1; 
                         //помечаем диапазон отмеченным
                         _discretSignals[i].Tags[0] = true;
                         if (borders.Score1 != 0) 
@@ -578,8 +674,8 @@ namespace React.Server
                     //если все диапазоны отмечены, помечаем сигнал отмеченным
                     if (_discretSignals[i].Tags.All(value => value))
                         _discretSignals[i].IsChecked = true;
-                    q.Add(new Log { Type = "Trace", Message = "TagId = " + lv.ExitId.ToString() });
-                    q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
+                    //q.TryAdd(new Log { Type = "Trace", Message = "TagId = " + lv.ExitId.ToString() });
+                    //q.TryAdd(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
                 }
             }
         }
@@ -683,8 +779,8 @@ namespace React.Server
 
                         if (_doubleDiscretSignals[i].Tags.All(value => value))
                             _doubleDiscretSignals[i].IsChecked = true;
-                        q.Add(new Log { Type = "Trace", Message = "TagId = " + lv.ExitId.ToString() });
-                        q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
+                        //q.TryAdd(new Log { Type = "Trace", Message = "TagId = " + lv.ExitId.ToString() });
+                        //q.TryAdd(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
                     }
                 }
                 else
@@ -818,8 +914,8 @@ namespace React.Server
 
                     if (_discretFromAnalogSignals[i].Tags.All(value => value))
                         _discretFromAnalogSignals[i].IsChecked = true;
-                    q.Add(new Log { Type = "Trace", Message = "TagId = " + _discretFromAnalogSignals[i].ExitId.ToString() });
-                    q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
+                    //q.TryAdd(new Log { Type = "Trace", Message = "TagId = " + _discretFromAnalogSignals[i].ExitId.ToString() });
+                    //q.TryAdd(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
                 }
             }
         }
@@ -955,7 +1051,7 @@ namespace React.Server
 
                         if (_groupOfDiscretSignals[i].Tags.All(value => value))
                             _groupOfDiscretSignals[i].IsChecked = true;
-                        q.Add(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
+                        //q.TryAdd(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
                     }
                     else
                         _groupOfDiscretSignals[i].DeltaT = _groupOfDiscretSignals[i].DeltaT.Add(new TimeSpan(0, 0, 1));
@@ -1098,14 +1194,14 @@ namespace React.Server
                     {
                         valBool = true;
                         result = await scadaVConnection.WriteVariable(_operationsWithCondition[i].ExitId, valBool, DateTime.Now);
-                        q.Add(new Log { Type = "Trace", Message = "Запись значения типа BOOL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + "." });
+                        //q.TryAdd(new Log { Type = "Trace", Message = "Запись значения типа BOOL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + "." });
                         await _hubContext.Clients.All.SendAsync(receiveFunctionName, "Запись значения типа BOOL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + " - " + DateTime.Now.ToString("T"));
                     }
                     else if (_operationsWithCondition[i].ValueToWrite.ToLower() == "false")
                     {
                         valBool = false;
                         result = await scadaVConnection.WriteVariable(_operationsWithCondition[i].ExitId, valBool, DateTime.Now);
-                        q.Add(new Log { Type = "Trace", Message = "Запись значения типа BOOL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + "." });
+                        //q.TryAdd(new Log { Type = "Trace", Message = "Запись значения типа BOOL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + "." });
                         await _hubContext.Clients.All.SendAsync(receiveFunctionName, "Запись значения типа BOOL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + " - " + DateTime.Now.ToString("T"));
                     }
                     else if (_operationsWithCondition[i].ValueToWrite.Contains('.') || _operationsWithCondition[i].ValueToWrite.Contains(','))
@@ -1113,14 +1209,14 @@ namespace React.Server
                         _operationsWithCondition[i].ValueToWrite = _operationsWithCondition[i].ValueToWrite.Replace('.', ',');
                         valFloat = float.Parse(_operationsWithCondition[i].ValueToWrite);
                         result = await scadaVConnection.WriteVariable(_operationsWithCondition[i].ExitId, valFloat, DateTime.Now);
-                        q.Add(new Log { Type = "Trace", Message = "Запись значения типа REAL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + "." });
+                        //q.TryAdd(new Log { Type = "Trace", Message = "Запись значения типа REAL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + "." });
                         await _hubContext.Clients.All.SendAsync(receiveFunctionName, "Запись значения типа REAL по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + " - " + DateTime.Now.ToString("T"));
                     }
                     else
                     {
                         valInt = Convert.ToInt32(_operationsWithCondition[i].ValueToWrite);
                         result = await scadaVConnection.WriteVariable(_operationsWithCondition[i].ExitId, valInt, DateTime.Now);
-                        q.Add(new Log { Type = "Trace", Message = "Запись значения типа INT по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + "." });
+                        //q.TryAdd(new Log { Type = "Trace", Message = "Запись значения типа INT по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + "." });
                         await _hubContext.Clients.All.SendAsync(receiveFunctionName, "Запись значения типа INT по тэгу " + _operationsWithCondition[i].ExitId + ". Прошла ли запись удачно - " + result + " - " + DateTime.Now.ToString("T"));
                     }
                 }
@@ -1142,7 +1238,7 @@ namespace React.Server
                     try
                     {
                         ScadaVConnection scadaVConnection = new ScadaVConnection();
-                        switch (analogSignals[i].BaseNum)
+                        switch (analogSignals[index].BaseNum)
                         {
                             case 1:
                                 scadaVConnection = scadaVConnection1;
@@ -1155,27 +1251,27 @@ namespace React.Server
                                 break;
                         }
 
-                        if (analogSignals[i].Func == "Диапазон")
+                        if (analogSignals[index].Func == "Диапазон")
                         {
-                            var f = _db.SelectRange(analogSignals[i].Id);
-                            marks.Add(await scadaVConnection.Diapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Left, (float)f.Right, f.AbsValues == 1 ? true : false));
+                            var f = _db.SelectRange(analogSignals[index].Id);
+                            marks.Add(await scadaVConnection.Diapazon(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Left, (float)f.Right, f.AbsValues == 1 ? true : false));
                         }
-                        else if (analogSignals[i].Func == "Настраиваемый диапазон")
+                        else if (analogSignals[index].Func == "Настраиваемый диапазон")
                         {
-                            var f = _db.SelectAdjustableRange(analogSignals[i].Id);
-                            marks.Add(await scadaVConnection.CustomizableDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Left, (float)f.Right, f.ExitId));
+                            var f = _db.SelectAdjustableRange(analogSignals[index].Id);
+                            marks.Add(await scadaVConnection.CustomizableDiapazon(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Left, (float)f.Right, f.ExitId));
                         }
-                        else if (analogSignals[i].Func == "Диапазон с параметрами")
+                        else if (analogSignals[index].Func == "Диапазон с параметрами")
                         {
-                            var f = _db.SelectRangeWithParameters(analogSignals[i].Id);
-                            marks.Add(await scadaVConnection.DiapazonWithParams(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Left, (float)f.Right1, (float)f.Right2, (float)f.ParamVal1, (float)f.ParamVal2, f.ExitId));
+                            var f = _db.SelectRangeWithParameters(analogSignals[index].Id);
+                            marks.Add(await scadaVConnection.DiapazonWithParams(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Left, (float)f.Right1, (float)f.Right2, (float)f.ParamVal1, (float)f.ParamVal2, f.ExitId));
                         }
-                        else if (analogSignals[i].Func == "Суммарное или неоднократное превышение уставки")
+                        else if (analogSignals[index].Func == "Суммарное или неоднократное превышение уставки")
                         {
-                            var f = _db.SelectExceeding(analogSignals[i].Id);
-                            marks.Add(await scadaVConnection.TotalOrRepeatedExceeding(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Ustavka, new TimeSpan(f.SummTime), (float)f.Prev));
+                            var f = _db.SelectExceeding(analogSignals[index].Id);
+                            marks.Add(await scadaVConnection.TotalOrRepeatedExceeding(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Ustavka, new TimeSpan(f.SummTime), (float)f.Prev));
                         }
-                        str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + " - " + DateTime.Now.ToString("T");
+                        str = "Аналоговый сигнал " + analogSignals[index].Name + " оценён на " + marks.Last().ToString() + " - " + DateTime.Now.ToString("T");
                         _criteriasForReport2.Add(str);
                         await _hubContext.Clients.All.SendAsync("ReceiveCriterias2", str);
                         await _hubContext.Clients.All.SendAsync(receive2FunctionName, str);
@@ -1210,7 +1306,7 @@ namespace React.Server
                     try
                     {
                         ScadaVConnection scadaVConnection = new ScadaVConnection();
-                        switch (analogSignals[i].BaseNum)
+                        switch (analogSignals[index].BaseNum)
                         {
                             case 1:
                                 scadaVConnection = scadaVConnection1;
@@ -1223,17 +1319,17 @@ namespace React.Server
                                 break;
                         }
 
-                        if (analogSignals[i].Func == "Диапазон")
+                        if (analogSignals[index].Func == "Диапазон")
                         {
-                            var f = _db.SelectDopRange(analogSignals[i].Id);
-                            marks.Add(await scadaVConnection.DopDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.OtlBorder, (float)f.XorBorder, (float)f.NeydBorder));
+                            var f = _db.SelectDopRange(analogSignals[index].Id);
+                            marks.Add(await scadaVConnection.DopDiapazon(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.OtlBorder, (float)f.XorBorder, (float)f.NeydBorder));
                         }
-                        else if (analogSignals[i].Func == "Поддержание заданного уровня")
+                        else if (analogSignals[index].Func == "Поддержание заданного уровня")
                         {
-                            var f = _db.SelectMaintainingLevel(analogSignals[i].Id);
-                            marks.Add(await scadaVConnection.DopAbsDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Ustavka, (float)f.OtlBorder, (float)f.NeydBorder));
+                            var f = _db.SelectMaintainingLevel(analogSignals[index].Id);
+                            marks.Add(await scadaVConnection.DopAbsDiapazon(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Ustavka, (float)f.OtlBorder, (float)f.NeydBorder));
                         }
-                        str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + " - " + DateTime.Now.ToString("T");
+                        str = "Аналоговый сигнал " + analogSignals[index].Name + " оценён на " + marks.Last().ToString() + " - " + DateTime.Now.ToString("T");
                         _criteriasForReport2.Add(str);
                         await _hubContext.Clients.All.SendAsync("ReceiveCriterias2", str);
                         await _hubContext.Clients.All.SendAsync(receive2FunctionName, str);
@@ -1274,7 +1370,7 @@ namespace React.Server
                     try
                     {
                         ScadaVConnection scadaVConnection = new ScadaVConnection();
-                        switch (analogSignals[i].BaseNum)
+                        switch (analogSignals[index].BaseNum)
                         {
                             case 1:
                                 scadaVConnection = scadaVConnection1;
@@ -1287,27 +1383,27 @@ namespace React.Server
                                 break;
                         }
 
-                        if (analogSignals[i].Func == "Диапазон")
+                        if (analogSignals[index].Func == "Диапазон")
                         {
-                            var f = _db.SelectRange(analogSignals[i].Id);
-                            marks.Add(await scadaVConnection.Diapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Left, (float)f.Right, f.AbsValues == 1 ? true : false));
+                            var f = _db.SelectRange(analogSignals[index].Id);
+                            marks.Add(await scadaVConnection.Diapazon(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Left, (float)f.Right, f.AbsValues == 1 ? true : false));
                         }
-                        else if (analogSignals[i].Func == "Настраиваемый диапазон")
+                        else if (analogSignals[index].Func == "Настраиваемый диапазон")
                         {
-                            var f = _db.SelectAdjustableRange(analogSignals[i].Id);
-                            marks.Add(await scadaVConnection.CustomizableDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Left, (float)f.Right, f.ExitId));
+                            var f = _db.SelectAdjustableRange(analogSignals[index].Id);
+                            marks.Add(await scadaVConnection.CustomizableDiapazon(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Left, (float)f.Right, f.ExitId));
                         }
-                        else if (analogSignals[i].Func == "Диапазон с параметрами")
+                        else if (analogSignals[index].Func == "Диапазон с параметрами")
                         {
-                            var f = _db.SelectRangeWithParameters(analogSignals[i].Id);
-                            marks.Add(await scadaVConnection.DiapazonWithParams(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Left, (float)f.Right1, (float)f.Right2, (float)f.ParamVal1, (float)f.ParamVal2, f.ExitId));
+                            var f = _db.SelectRangeWithParameters(analogSignals[index].Id);
+                            marks.Add(await scadaVConnection.DiapazonWithParams(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Left, (float)f.Right1, (float)f.Right2, (float)f.ParamVal1, (float)f.ParamVal2, f.ExitId));
                         }
-                        else if (analogSignals[i].Func == "Суммарное или неоднократное превышение уставки")
+                        else if (analogSignals[index].Func == "Суммарное или неоднократное превышение уставки")
                         {
-                            var f = _db.SelectExceeding(analogSignals[i].Id);
-                            marks.Add(await scadaVConnection.TotalOrRepeatedExceeding(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Ustavka, new TimeSpan(f.SummTime), (float)f.Prev));
+                            var f = _db.SelectExceeding(analogSignals[index].Id);
+                            marks.Add(await scadaVConnection.TotalOrRepeatedExceeding(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Ustavka, new TimeSpan(f.SummTime), (float)f.Prev));
                         }
-                        str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + " - " + DateTime.Now.ToString("T");
+                        str = "Аналоговый сигнал " + analogSignals[index].Name + " оценён на " + marks.Last().ToString() + " - " + DateTime.Now.ToString("T");
                         _criteriasForReport2.Add(str);
                         await _hubContext.Clients.All.SendAsync("ReceiveCriterias2", str);
                         await _hubContext.Clients.All.SendAsync(receive2FunctionName, str);
@@ -1342,7 +1438,7 @@ namespace React.Server
                     try
                     {
                         ScadaVConnection scadaVConnection = new ScadaVConnection();
-                        switch (analogSignals[i].BaseNum)
+                        switch (analogSignals[index].BaseNum)
                         {
                             case 1:
                                 scadaVConnection = scadaVConnection1;
@@ -1355,17 +1451,17 @@ namespace React.Server
                                 break;
                         }
 
-                        if (analogSignals[i].Func == "Диапазон")
+                        if (analogSignals[index].Func == "Диапазон")
                         {
-                            var f = _db.SelectDopRange(analogSignals[i].Id);
-                            marks.Add(await scadaVConnection.DopDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.OtlBorder, (float)f.XorBorder, (float)f.NeydBorder));
+                            var f = _db.SelectDopRange(analogSignals[index].Id);
+                            marks.Add(await scadaVConnection.DopDiapazon(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.OtlBorder, (float)f.XorBorder, (float)f.NeydBorder));
                         }
-                        else if (analogSignals[i].Func == "Поддержание заданного уровня")
+                        else if (analogSignals[index].Func == "Поддержание заданного уровня")
                         {
-                            var f = _db.SelectMaintainingLevel(analogSignals[i].Id);
-                            marks.Add(await scadaVConnection.DopAbsDiapazon(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Ustavka, (float)f.OtlBorder, (float)f.NeydBorder));
+                            var f = _db.SelectMaintainingLevel(analogSignals[index].Id);
+                            marks.Add(await scadaVConnection.DopAbsDiapazon(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Ustavka, (float)f.OtlBorder, (float)f.NeydBorder));
                         }
-                        str = "Аналоговый сигнал " + analogSignals[i].Name + " оценён на " + marks.Last().ToString() + " - " + DateTime.Now.ToString("T");
+                        str = "Аналоговый сигнал " + analogSignals[index].Name + " оценён на " + marks.Last().ToString() + " - " + DateTime.Now.ToString("T");
                         _criteriasForReport2.Add(str);
                         await _hubContext.Clients.All.SendAsync("ReceiveCriterias2", str);
                         await _hubContext.Clients.All.SendAsync(receive2FunctionName, str);
@@ -1405,7 +1501,7 @@ namespace React.Server
                     try
                     {
                         ScadaVConnection scadaVConnection = new ScadaVConnection();
-                        switch (analogSignals[i].BaseNum)
+                        switch (analogSignals[index].BaseNum)
                         {
                             case 1:
                                 scadaVConnection = scadaVConnection1;
@@ -1418,10 +1514,10 @@ namespace React.Server
                                 break;
                         }
 
-                        if (analogSignals[i].Func == "Время пребывания в интервале")
+                        if (analogSignals[index].Func == "Время пребывания в интервале")
                         {
-                            var f = _db.SelectTimeInInterval(analogSignals[i].Id);
-                            var time = await scadaVConnection.TimeInIntervalFloat(analogSignals[i].ExitId, (float)f.Bottom, (float)f.Top, (DateTime)_selectedTraining.StartDateTime, _endTime);
+                            var f = _db.SelectTimeInInterval(analogSignals[index].Id);
+                            var time = await scadaVConnection.TimeInIntervalFloat(analogSignals[index].ExitId, (float)f.Bottom, (float)f.Top, (DateTime)_selectedTraining.StartDateTime, _endTime);
                             bool flag = false;
                             if (f.Sign == ">" && time > f.Ustavka)
                                 flag = true;
@@ -1439,20 +1535,20 @@ namespace React.Server
                             if (!flag)
                             {
                                 _mark -= f.Score;
-                                str = analogSignals[i].Name + " - " + f.Score + " " + getWord(f.Score) + " - " + DateTime.Now.ToString("T");
+                                str = analogSignals[index].Name + " - " + f.Score + " " + getWord(f.Score) + " - " + DateTime.Now.ToString("T");
                                 await _hubContext.Clients.All.SendAsync("ReceiveCriterias1", str);
                                 await _hubContext.Clients.All.SendAsync(receiveFunctionName, str);
                             }
                         }
-                        else if (analogSignals[i].Func == "Наличие выхода за коридор")
+                        else if (analogSignals[index].Func == "Наличие выхода за коридор")
                         {
-                            var f = _db.SelectExitToTheCorridor(analogSignals[i].Id);
-                            var res = await scadaVConnection.ValueOutOfBorders(analogSignals[i].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Bottom, (float)f.Top);
+                            var f = _db.SelectExitToTheCorridor(analogSignals[index].Id);
+                            var res = await scadaVConnection.ValueOutOfBorders(analogSignals[index].ExitId, (DateTime)_selectedTraining.StartDateTime, _endTime, (float)f.Bottom, (float)f.Top);
 
                             if (!res)
                             {
                                 _mark -= f.Score;
-                                str = analogSignals[i].Name + " - " + f.Score + " " + getWord(f.Score) + " - " + DateTime.Now.ToString("T");
+                                str = analogSignals[index].Name + " - " + f.Score + " " + getWord(f.Score) + " - " + DateTime.Now.ToString("T");
                                 await _hubContext.Clients.All.SendAsync("ReceiveCriterias1", str);
                                 await _hubContext.Clients.All.SendAsync(receiveFunctionName, str);
                             }
@@ -1490,7 +1586,7 @@ namespace React.Server
 
                 //ожидаем завершения всех задач
                 foreach (var t in _tasks)
-                    if (t.Id != Task.CurrentId)
+                    if (t.Id != Task.CurrentId && !t.IsCanceled)
                         await t;
 
                 string str;
@@ -1527,7 +1623,7 @@ namespace React.Server
 
                 //ожидаем завершения всех задач
                 foreach (var t in _tasks)
-                    if (t.Id != Task.CurrentId)
+                    if (t.Id != Task.CurrentId && !t.IsCanceled)
                         await t;
                 await TrainingEnd(true);
             }

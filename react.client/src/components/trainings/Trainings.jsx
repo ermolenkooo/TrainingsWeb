@@ -11,16 +11,17 @@ import * as signalR from "@microsoft/signalr";
 
 export const Trainings = () => {
     const [trainings, trainingsChange] = useState([]);
-    const { criteriasWithMarks, criteriasWithMarksChange } = useContext(AppContext);
-    const { criteriasWithMarks2, criteriasWithMarks2Change } = useContext(AppContext);
     const [selectedReportType, setSelectedReportType] = useState('');
     const [selectedTrainingDate, setSelectedTrainingDate] = useState(() => {
         return localStorage.getItem('selectedTrainingDate') || null;
     });
-    const { addMessage, setMessages, addMessage2, setMessages2, removedConnection, hubConnection } = useContext(AppContext);
-    const [selectedTrainingId, setSelectedTrainingId] = useState(() => {
-        return parseInt(localStorage.getItem('selectedTrainingId')) || null;
-    });
+    const { addMessage, setMessages, addMessage2, setMessages2, hubConnection, criteriasWithMarks, setCriteriasWithMarks, criteriasWithMarks2, setCriteriasWithMarks2 } = useContext(AppContext);
+    //const [selectedTrainingId, setSelectedTrainingId] = useState(() => {
+    //    return parseInt(localStorage.getItem('selectedTrainingId')) || null;
+    //});
+    const { selectedTrainingId, setSelectedTrainingId } = useContext(AppContext);
+    const { selectedTrainingStatus, setSelectedTrainingStatus } = useContext(AppContext);
+    const { selectedTrainingMark, setSelectedTrainingMark } = useContext(AppContext);
     const [isShowingDescriptionModal, toggleDescriptionModal] = usePopup();
     const [isShowingSettingsModal, toggleSettingsModal] = usePopup();
     const [isShowingReportModal, toggleReportModal] = usePopup();
@@ -41,13 +42,14 @@ export const Trainings = () => {
 
     const handleTrainingClick = (id) => {
         setSelectedTrainingId(id);
-        localStorage.setItem('selectedTrainingId', id);
-        localStorage.setItem('selectedTrainingStatus', '');
-        localStorage.setItem('selectedTrainingMark', trainings.find(training => training.id === id).mark);
+        //localStorage.setItem('selectedTrainingId', id);
+        setSelectedTrainingStatus('');
+        //localStorage.setItem('selectedTrainingStatus', '');
+        setSelectedTrainingMark('');
+        //localStorage.setItem('selectedTrainingMark', trainings.find(training => training.id === id).mark);
     };
 
     const setupSignalRConnection = () => {
-
         hubConnection.start()
             .then(() => {
                 console.log('SignalR Connected');
@@ -59,8 +61,8 @@ export const Trainings = () => {
                 hubConnection.on("Start", function () {
                     setMessages([]);
                     setMessages2([]);
-                    criteriasWithMarksChange([]);
-                    criteriasWithMarks2Change([]);
+                    setCriteriasWithMarks([]);
+                    setCriteriasWithMarks2([]);
                 });
 
                 hubConnection.on("Receive", function (message) {
@@ -74,21 +76,23 @@ export const Trainings = () => {
                 hubConnection.on("ReceiveCriterias1", function (message) {
                     var array = criteriasWithMarks;
                     array.push(message);
-                    criteriasWithMarksChange(array);
+                    setCriteriasWithMarks(array);
                 });
 
                 hubConnection.on("ReceiveCriterias2", function (message) {
                     var array = criteriasWithMarks2;
                     array.push(message);
-                    criteriasWithMarks2Change(array);
+                    setCriteriasWithMarks2(array);
                 });
 
                 hubConnection.on("ReceiveMark", function (message) {
-                    localStorage.setItem('selectedTrainingMark', message);
+                    setSelectedTrainingMark(message);
+                    //localStorage.setItem('selectedTrainingMark', message);
                 });
 
                 hubConnection.on("ReceiveStatus", function (message) {
-                    localStorage.setItem('selectedTrainingStatus', message);
+                    setSelectedTrainingStatus(message);
+                    //localStorage.setItem('selectedTrainingStatus', message);
                 });
 
                 hubConnection.on("TrainingIsEnd", function () {
@@ -113,7 +117,7 @@ export const Trainings = () => {
     };
 
     const endTraining = (reportNeed) => {
-        if (selectedTrainingId != null && localStorage.getItem('selectedTrainingStatus') == "Начата") {
+        if (selectedTrainingId != null && /*localStorage.getItem('selectedTrainingStatus')*/ selectedTrainingStatus == "Начата") {
 
             hubConnection.start()
                 .then(() => {
@@ -128,6 +132,7 @@ export const Trainings = () => {
                     });
 
                     hubConnection.on("IsOver", function () {
+
                         if (selectedReportType != '' && reportNeed) {
                             var training = trainings.find(item => item.id === selectedTrainingId);
                             createReport(selectedReportType, {
@@ -136,7 +141,7 @@ export const Trainings = () => {
                                 date: new Date(selectedTrainingDate).toISOString(),
                                 trainingName: training.name,
                                 criteriasWithMarks: selectedReportType === '1'? criteriasWithMarks : criteriasWithMarks2,
-                                endMark: localStorage.getItem('selectedTrainingMark') || null,
+                                endMark: selectedTrainingMark,
                             });
                         }
                     });

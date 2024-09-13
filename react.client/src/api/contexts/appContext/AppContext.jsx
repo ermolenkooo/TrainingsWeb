@@ -4,11 +4,13 @@ import { HubConnectionBuilder } from '@microsoft/signalr';
 export const AppContext = createContext(null);
 
 export const AppProvider = ({ children }) => {
-    const [selectedTrainingId, setSelectedTrainingId] = useState(0);
+    const [selectedTrainingId, setSelectedTrainingId] = useState(null);
+    const [selectedTrainingStatus, setSelectedTrainingStatus] = useState(null);
+    const [selectedTrainingMark, setSelectedTrainingMark] = useState(null);
     const [messages, setMessages] = useState([]);
     const [messages2, setMessages2] = useState([]);
-    const [criteriasWithMarks, criteriasWithMarksChange] = useState([]);
-    const [criteriasWithMarks2, criteriasWithMarks2Change] = useState([]);
+    const [criteriasWithMarks, setCriteriasWithMarks] = useState([]);
+    const [criteriasWithMarks2, setCriteriasWithMarks2] = useState([]);
     const connectionRef = useRef(null); // Используем useRef для хранения соединения
 
     useEffect(() => {
@@ -53,11 +55,18 @@ export const AppProvider = ({ children }) => {
         });
 
         connection.on("ReceiveMarkRemoved", message => {
-            localStorage.setItem('selectedTrainingMark', message);
+            setSelectedTrainingMark(message);
+            //localStorage.setItem('selectedTrainingMark', message);
         });
 
         connection.on("ReceiveStatusRemoved", message => {
-            localStorage.setItem('selectedTrainingStatus', message);
+            setSelectedTrainingStatus(message);
+            //localStorage.setItem('selectedTrainingStatus', message);
+        });
+
+        connection.on("ReceiveIdRemoved", message => {
+            setSelectedTrainingId(message);
+            //localStorage.setItem('selectedTrainingStatus', message);
         });
 
         connection.on("TrainingIsEndRemoved", () => {
@@ -90,8 +99,12 @@ export const AppProvider = ({ children }) => {
     };
 
     return (
-        <AppContext.Provider value={{ messages, addMessage, setMessages, messages2, addMessage2, setMessages2, removedConnection: connectionRef.current, hubConnection,
-            criteriasWithMarks, criteriasWithMarksChange, criteriasWithMarks2, criteriasWithMarks2Change }}>
+        <AppContext.Provider value={{
+            messages, addMessage, setMessages, messages2, addMessage2, setMessages2, criteriasWithMarks,
+            setCriteriasWithMarks, criteriasWithMarks2, setCriteriasWithMarks2, removedConnection: connectionRef.current,
+            hubConnection, selectedTrainingId, setSelectedTrainingId, selectedTrainingStatus, setSelectedTrainingStatus,
+            selectedTrainingMark, setSelectedTrainingMark
+        }}>
             {children}
         </AppContext.Provider>
     );

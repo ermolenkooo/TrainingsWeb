@@ -51,7 +51,7 @@ builder.Services.AddTransient<MyOptions>();
 //    return myOptions;
 //});
 builder.Services.AddSingleton<MessageManager>();
-builder.Services.AddSingleton<React.Server.WebSocketManager>();
+//builder.Services.AddSingleton<React.Server.WebSocketManager>();
 
 var app = builder.Build();
 

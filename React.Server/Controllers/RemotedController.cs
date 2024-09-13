@@ -26,7 +26,6 @@ namespace React.Server.Controllers
             _messageManager.SetSettings(_hubContext, _options, true);
             if (_messageManager.CheckTraining(taskId))
             {
-
                 await _options.scadaVConnection1.CreateArchiveHost(_options.Settings.ArchiveIp);
                 await _options.scadaVConnection2.CreateArchiveHost(_options.Settings.Archive2Ip);
                 await _options.scadaVConnection3.CreateArchiveHost(_options.Settings.Archive3Ip);
@@ -37,7 +36,8 @@ namespace React.Server.Controllers
 
                 await _hubContext.Clients.All.SendAsync("RemovedStart");
 
-                await _messageManager.StartConnection(taskId);
+                await Task.Delay(5000);
+                _messageManager.StartConnection(taskId);
                 return Ok();
             }
             else
@@ -48,12 +48,8 @@ namespace React.Server.Controllers
         public IActionResult StopTaskShedulers()
         {
             if (_messageManager.StatusTraining != 2)
-            {
                 _messageManager.HandlerEndTrainingAsync();
-                return Ok();
-            }
-            else
-                return NotFound();
+            return Ok();
         }
     }
 }

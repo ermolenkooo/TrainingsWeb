@@ -6,11 +6,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using BLL.Models;
+using NLog;
 
 namespace BLL
 {
     public class ScadaVConnection
     {
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+
         public static ScadaArchiveRemoteServiceBuilder ArchiveBuilder(string host1, string host1r = null, string host2 = null, string host2r = null)
         {
             var scp = new RemoteServiceConnectionProperties
@@ -37,7 +40,6 @@ namespace BLL
         {
             Scada.ConnectV.ScadaArchiveHost? archiveHost = ScadaVConnection.ArchiveBuilder(IP).CreateHost();
             archiveConnection = await archiveHost.GetAccessibleAsync();
-            int a = 9;
         }
 
         public async Task CreateServerHost(string IP)
@@ -46,65 +48,7 @@ namespace BLL
             serverConnection = await serverGroup.GetAccessibleAsync();
         }
 
-        #region MinMaxFunctions
-        public async Task<float> MaxOnIntervalFloat(int TagId, DateTime startTime, DateTime endTime)
-        {
-            List<TagValue> values = await ReadValuesFromArchive(TagId, startTime, endTime);
-            float max = Convert.ToSingle(values[0].Value);
-            float cur;
-            //выбор максимального значения из коллекции
-            for (int i = 1; i < values.Count; i++)
-            {
-                cur = Convert.ToSingle(values[i].Value);
-                if (cur > max) max = cur;
-            }
-            return max;
-        }
-
-        public async Task<int> MaxOnIntervalInt(int TagId, DateTime startTime, DateTime endTime)
-        {
-            List<TagValue> values = await ReadValuesFromArchive(TagId, startTime, endTime);
-            int max = Convert.ToInt32(values[0].Value);
-            int cur;
-            //выбор максимального значения из коллекции
-            for (int i = 1; i < values.Count; i++)
-            {
-                cur = Convert.ToInt32(values[i].Value);
-                if (cur > max) max = cur;
-            }
-            return max;
-        }
-
-        public async Task<float> MinOnIntervalFloat(int TagId, DateTime startTime, DateTime endTime)
-        {
-            List<TagValue> values = await ReadValuesFromArchive(TagId, startTime, endTime);
-            float min = Convert.ToSingle(values[0].Value);
-            float cur;
-            //выбор максимального значения из коллекции
-            for (int i = 1; i < values.Count; i++)
-            {
-                cur = Convert.ToSingle(values[i].Value);
-                if (cur < min) min = cur;
-            }
-            return min;
-        }
-
-        public async Task<int> MinOnIntervalInt(int TagId, DateTime startTime, DateTime endTime)
-        {
-            List<TagValue> values = await ReadValuesFromArchive(TagId, startTime, endTime);
-            int min = Convert.ToInt32(values[0].Value);
-            int cur;
-            //выбор максимального значения из коллекции
-            for (int i = 1; i < values.Count; i++)
-            {
-                cur = Convert.ToInt32(values[i].Value);
-                if (cur < min) min = cur;
-            }
-            return min;
-        }
-        #endregion
-
-        #region TimeIntervalFunctions
+        #region TimeIntervalFunction
         public async Task<TimeSpan> TimeInIntervalFloat(int TagId, float minBorder, float maxBorder, DateTime startTime, DateTime endTime)
         {
             try
@@ -137,59 +81,6 @@ namespace BLL
             {
                 throw new Exception(ex.Message);
             }
-        }
-
-        public async Task<TimeSpan> TimeInIntervalInt(int TagId, int minBorder, int maxBorder, DateTime startTime, DateTime endTime)
-        {
-            List<TagValue> values = await ReadValuesFromArchive(TagId, startTime, endTime);
-            List<TagValue> sortedValues = (from val in values orderby val.TimeStamp select val).ToList<TagValue>();
-            int v;
-            bool inside = false;
-            DateTime open = new DateTime();
-            DateTime close = new DateTime();
-            TimeSpan ans = new TimeSpan();
-            for (int i = 0; i < sortedValues.Count; i++)
-            {
-                v = Convert.ToInt32(sortedValues[i].Value);
-                if (v >= minBorder && v <= maxBorder && !inside)
-                {
-                    inside = true;
-                    open = sortedValues[i].TimeStamp;
-                }
-                if ((inside && (v < minBorder || v > maxBorder)) || (i == values.Count - 1 && inside))
-                {
-                    inside = false;
-                    close = sortedValues[i].TimeStamp;
-                    ans += close - open;
-                }
-            }
-            return ans;
-        }
-
-        public async Task<TimeSpan> TimeInIntervalBool(int TagId, bool val, DateTime startTime, DateTime endTime)
-        {
-            List<TagValue> values = await ReadValuesFromArchive(TagId, startTime, endTime);
-            DateTime open = new DateTime();
-            DateTime close = new DateTime();
-            TimeSpan ans = new TimeSpan();
-            bool v;
-            bool inside = false;
-            for (int i = 0; i < values.Count; i++)
-            {
-                v = Convert.ToBoolean(values[i].Value);
-                if (v == val && !inside)
-                {
-                    inside = true;
-                    open = values[i].TimeStamp;
-                }
-                if ((inside && (v != val)) || (i == values.Count - 1 && inside))
-                {
-                    inside = false;
-                    close = values[i].TimeStamp;
-                    ans += close - open;
-                }
-            }
-            return ans;
         }
         #endregion
 
@@ -232,6 +123,12 @@ namespace BLL
                 throw new Exception("Нет связи со шлюзом!");
             }
             var resServ = await serverConnection.Service.WriteValues(values);
+
+            if (res.IsOk)
+                Logger.Trace("Запись значения по тегу " + tagId.ToString() + " прошла успешно");
+            else
+                Logger.Trace("Запись значения по тегу " + tagId.ToString() + " прошла неудачно");
+
             return res.IsOk;
         }
 
@@ -253,6 +150,12 @@ namespace BLL
                 throw new Exception("Нет связи со шлюзом!");
             }
             var resServ = await serverConnection.Service.WriteValues(values);
+
+            if (res.IsOk)
+                Logger.Trace("Запись значения по тегу " + tagId.ToString() + " прошла успешно");
+            else
+                Logger.Trace("Запись значения по тегу " + tagId.ToString() + " прошла неудачно");
+
             return res.IsOk;
         }
 
@@ -274,11 +177,17 @@ namespace BLL
                 throw new Exception("Нет связи со шлюзом!");
             }
             var resServ = await serverConnection.Service.WriteValues(values);
+
+            if (resArch.IsOk)
+                Logger.Trace("Запись значения по тегу " + tagId.ToString() + " прошла успешно");
+            else
+                Logger.Trace("Запись значения по тегу " + tagId.ToString() + " прошла неудачно");
+
             return resArch.IsOk;
         }
         #endregion
 
-        public async Task<TagValue> ReadVariableFromServer(int tagId)
+        public async Task<TagValue> ReadVariableFromServer(int tagId) 
         {
             if (serverConnection == null)
             {
@@ -299,9 +208,15 @@ namespace BLL
             List<TagValue> values = resultCollection.ToList();
             await serverConnection.Service.UnsubscribeRead(groupId);
             if (values.Count != 0)
+            {
+                Logger.Trace("В результате чтения из шлюза по тегу " + tagId.ToString() + " вернулось значение " + values[values.Count - 1].Value.ToString());
                 return values[values.Count - 1];
+            }
             else
+            {
+                Logger.Trace("В результате чтения из шлюза по тегу " + tagId.ToString() + " вернулась пустая коллекция");
                 throw new Exception("В результате чтения из шлюза по тегу " + tagId + " вернулась пустая коллекция");
+            }
         }
 
         public async Task<bool> ReadDiscretFromServer(int tagId)
@@ -324,16 +239,19 @@ namespace BLL
             IReadOnlyCollection<TagValue> resultCollection = res.tagValues;
             if (resultCollection == null)
             {
+                Logger.Trace("Нет данных по тегу " + tagId.ToString() + " в архиве");
                 throw new Exception("Нет данных по тэгу " + tagId);
             }
             else
             {
                 if (resultCollection.Count == 0)
                 {
+                    Logger.Trace("В результате чтения из архива по тэгу " + tagId.ToString() + " вернулась пустая коллекция");
                     throw new Exception("В результате чтения из архива по тэгу " + tagId + " вернулась пустая коллекция");
                 }
             }
             List<TagValue> values = resultCollection.ToList();
+            Logger.Trace("В результате чтения из архива по тэгу " + tagId.ToString() + " вернулась коллекция из " + values.Count.ToString() + " элементов");
             return values;
         }
 
@@ -384,46 +302,6 @@ namespace BLL
             catch (Exception ex)
             {
                 throw new Exception(ex.Message);
-            }
-        }
-        public async Task<AnalogSignalMark> Diapazon(int tagId, DateTime startTime, DateTime endTime, int left, int right, bool useAbsValues)
-        {
-            List<TagValue> values = await ReadValuesFromArchive(tagId, startTime, endTime);
-            int maxVal;
-            if (useAbsValues)
-            {
-                left = Math.Abs(left);
-                right = Math.Abs(right);
-                //Найти максимум
-                maxVal = Math.Abs(Convert.ToInt32(values[0].Value));
-                for (int i = 1; i < values.Count; i++)
-                {
-                    int cur = Math.Abs(Convert.ToInt32(values[i].Value));
-                    if (cur > maxVal) maxVal = cur;
-                }
-            }
-            else
-            {
-                //Найти максимум
-                maxVal = Convert.ToInt32(values[0].Value);
-                for (int i = 1; i < values.Count; i++)
-                {
-                    int cur = Convert.ToInt32(values[i].Value);
-                    if (cur > maxVal) maxVal = cur;
-                }
-            }
-            //Сравнить максимум с границами
-            if (maxVal >= right)
-            {
-                return AnalogSignalMark.NeYd;
-            }
-            else if (maxVal <= left)
-            {
-                return AnalogSignalMark.Otl;
-            }
-            else
-            {
-                return AnalogSignalMark.Yd;
             }
         }
         #endregion
@@ -480,39 +358,6 @@ namespace BLL
             catch (Exception ex)
             {
                 throw new Exception(ex.Message);
-            }
-        }
-
-        public async Task<AnalogSignalMark> CustomizableDiapazon(int tagId, DateTime startTime, DateTime endTime, int left, int right, int exitId)
-        {
-            //Ищем метку времени, когда exitId изменило значение с true на false
-            List<TagValue> boolValues = await ReadValuesFromArchive(exitId, startTime, endTime);
-            DateTime border = DateTime.MinValue;
-
-            for (int i = 0; i < boolValues.Count; i++)
-            {
-                if (!Convert.ToBoolean(boolValues[i].Value)) border = boolValues[i].TimeStamp;
-            }
-            //Анализируем значения на полученном промежутке
-            List<TagValue> values = await ReadValuesFromArchive(tagId, startTime, border);
-            int maxVal = Convert.ToInt32(values[0].Value);
-            for (int i = 1; i < values.Count; i++)
-            {
-                int cur = Convert.ToInt32(values[i].Value);
-                if (cur > maxVal) maxVal = cur;
-            }
-            //Сравнить максимум с границами
-            if (maxVal >= right)
-            {
-                return AnalogSignalMark.NeYd;
-            }
-            else if (maxVal <= left)
-            {
-                return AnalogSignalMark.Otl;
-            }
-            else
-            {
-                return AnalogSignalMark.Yd;
             }
         }
         #endregion
@@ -688,137 +533,6 @@ namespace BLL
             {
                 throw new Exception(ex.Message);
             }
-        }
-        #endregion
-
-        #region F_LIMIT
-
-        /// <summary>
-        /// Проверяет, выходил ли параметр за коридор
-        /// </summary>
-        /// <param name="tag">tagId</param>
-        /// <param name="down">нижняя граница коридора</param>
-        /// <param name="up">верхняя граница коридора</param>
-        /// <param name="startTime">время начала интервала</param>
-        /// <param name="endTime">время конца интервала</param>
-        /// <returns>true - параметр выходил за коридор, иначе - false</returns>
-        public async Task<bool> FlimitReal(int tag, float down, float up, DateTime startTime, DateTime endTime)
-        {
-            List<TagValue> values = await ReadValuesFromArchive(tag, startTime, endTime);
-            for (int i = 0; i < values.Count; i++)
-            {
-                float val = Convert.ToSingle(values[i].Value);
-                if (val <= down || val >= up) return true;
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Проверяет, выходил ли параметр за коридор
-        /// </summary>
-        /// <param name="tag">tagId</param>
-        /// <param name="down">нижняя граница коридора</param>
-        /// <param name="up">верхняя граница коридора</param>
-        /// <param name="startTime">время начала интервала</param>
-        /// <param name="endTime">время конца интервала</param>
-        /// <returns>true - параметр выходил за коридор, иначе - false</returns>
-        public async Task<bool> FlimitInt(int tag, int down, int up, DateTime startTime, DateTime endTime)
-        {
-            List<TagValue> values = await ReadValuesFromArchive(tag, startTime, endTime);
-            for (int i = 0; i < values.Count; i++)
-            {
-                float val = Convert.ToSingle(values[i].Value);
-                if (val <= down || val >= up) return true;
-            }
-            return false;
-        }
-        #endregion
-
-        #region F_NUMB
-        public async Task<int> NumberOfDeviationsFloat(int tag, float val, string sign, DateTime startTime, DateTime endTime)
-        {
-            List<TagValue> values = await ReadValuesFromArchive(tag, startTime, endTime);
-            int count = 0;
-            if (sign == ">=")
-            {
-                bool inside = false;
-                for (int i = 0; i < values.Count; i++)
-                {
-                    if (!inside && Convert.ToSingle(values[i].Value) >= val)
-                    {
-                        inside = true;
-                    }
-                    if (inside && (Convert.ToSingle(values[i].Value) <= val || i == values.Count - 1))
-                    {
-                        inside = false;
-                        count++;
-                    }
-                }
-            }
-            else if (sign == "<=")
-            {
-                bool inside = false;
-                for (int i = 0; i < values.Count; i++)
-                {
-                    if (!inside && Convert.ToSingle(values[i].Value) <= val)
-                    {
-                        inside = true;
-                    }
-                    if (inside && (Convert.ToSingle(values[i].Value) >= val || i == values.Count - 1))
-                    {
-                        inside = false;
-                        count++;
-                    }
-                }
-            }
-            else
-            {
-                throw new Exception("Не коректный знак сравнения в методе NumberOfDeviations.");
-            }
-            return count;
-        }
-
-        public async Task<int> NumberOfDeviationsInt(int tag, int val, string sign, DateTime startTime, DateTime endTime)
-        {
-            List<TagValue> values = await ReadValuesFromArchive(tag, startTime, endTime);
-            int count = 0;
-            if (sign == ">=")
-            {
-                bool inside = false;
-                for (int i = 0; i < values.Count; i++)
-                {
-                    if (!inside && Convert.ToInt32(values[i].Value) >= val)
-                    {
-                        inside = true;
-                    }
-                    if (inside && (Convert.ToInt32(values[i].Value) <= val || i == values.Count - 1))
-                    {
-                        inside = false;
-                        count++;
-                    }
-                }
-            }
-            else if (sign == "<")
-            {
-                bool inside = false;
-                for (int i = 0; i < values.Count; i++)
-                {
-                    if (!inside && Convert.ToInt32(values[i].Value) <= val)
-                    {
-                        inside = true;
-                    }
-                    if (inside && (Convert.ToInt32(values[i].Value) >= val || i == values.Count - 1))
-                    {
-                        inside = false;
-                        count++;
-                    }
-                }
-            }
-            else
-            {
-                throw new Exception("Не коректный знак сравнения в методе NumberOfDeviations.");
-            }
-            return count;
         }
         #endregion
 

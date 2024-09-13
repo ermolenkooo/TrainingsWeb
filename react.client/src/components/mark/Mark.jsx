@@ -4,10 +4,11 @@ import { getTraining } from '../../api/domains/trainingApi';
 import { AppContext } from '../../api/contexts/appContext/AppContext'
 
 export const Mark = () => {
-    const [selectedTraining, setSelectedTraining] = useState(null);
-    const [selectedTrainingId, setSelectedTrainingId] = useState(null);
-    const [selectedTrainingStatus, setSelectedTrainingStatus] = useState(null);
-    const [selectedTrainingMark, setSelectedTrainingMark] = useState(null);
+    const [ selectedTraining, setSelectedTraining ] = useState(null);
+    const { selectedTrainingId } = useContext(AppContext);
+    const { selectedTrainingStatus } = useContext(AppContext);
+    const { selectedTrainingMark } = useContext(AppContext);
+    //const [ selectedTrainingMark ] = useState(null);
 
     const { messages, messages2 } = useContext(AppContext);
 
@@ -24,9 +25,9 @@ export const Mark = () => {
     }, [selectedTrainingId]);
 
     useEffect(() => {
-        setSelectedTrainingId(localStorage.getItem('selectedTrainingId'));
-        setSelectedTrainingStatus(localStorage.getItem('selectedTrainingStatus'));
-        setSelectedTrainingMark(localStorage.getItem('selectedTrainingMark'));
+        //setSelectedTrainingId(localStorage.getItem('selectedTrainingId'));
+        //setSelectedTrainingStatus(localStorage.getItem('selectedTrainingStatus'));
+        //setSelectedTrainingMark(localStorage.getItem('selectedTrainingMark'));
     }, []);
 
     return (

@@ -32,6 +32,7 @@ namespace React.Server
             await _options.scadaVConnection3.CreateServerHost(_options.Settings.Archive3Ip);
 
             _messageManager.SetSettings(_hubContext, _options, false);
+            await Task.Delay(5000);
             await _messageManager.StartConnection(Convert.ToInt32(message));
         }
 
