@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using BLL.Models;
 using NLog;
+using Alezy.Library.Core.Utils;
 
 namespace BLL
 {
@@ -187,7 +188,7 @@ namespace BLL
         }
         #endregion
 
-        public async Task<TagValue> ReadVariableFromServer(int tagId) 
+        public async Task<TagValue> ReadVariableFromServer(int tagId)
         {
             if (serverConnection == null)
             {
@@ -202,8 +203,15 @@ namespace BLL
             list.Add(tagId);
             IReadOnlyCollection<int> tagIds = list;
             var subscribeRes = await serverConnection.Service.SubscribeRead(tagIds);
+            if (!subscribeRes.err.IsOk)
+            {
+                Logger.Trace("Ошибка подписки");
+                while (!subscribeRes.err.IsOk)
+                    subscribeRes = await serverConnection.Service.SubscribeRead(tagIds);
+            }
             long groupId = subscribeRes.groupId;
             var res = await serverConnection.Service.ReadValues(groupId, true);
+            Logger.Trace("Чтения из шлюза по тегу" + tagId.ToString() + " - " + res.err.ErrorMessage + " " + res.err.ErrorCategory.ToString());
             IReadOnlyCollection<TagValue> resultCollection = res.values;
             List<TagValue> values = resultCollection.ToList();
             await serverConnection.Service.UnsubscribeRead(groupId);
@@ -224,6 +232,29 @@ namespace BLL
             TagValue tagValue = await ReadVariableFromServer(tagId);
             return Convert.ToBoolean(tagValue.Value);
         }
+
+        public async Task<bool> ReadDiscretFromServerForDiscretSignal(int tagId)
+        {
+            TagValue tagValue = await ReadVariableFromServer(tagId);
+            return Convert.ToBoolean(tagValue.Value);
+        }
+
+        //public async Task<bool> ReadDiscretFromServerForDiscretSignal(int tagId)
+        //{
+        //    var values = new List<TagValue>();
+        //    for (int i = 0; i < 3; i++)
+        //    {
+        //        //Thread.Sleep(1000 / 3);
+        //        await Task.Delay(1000 / 3);
+        //        values.Add(await ReadVariableFromServer(tagId));
+        //    }
+        //    //values.Add(await ReadVariableFromServer(tagId));
+        //    //await Task.Delay(1000);
+        //    //values.Add(await ReadVariableFromServer(tagId));
+        //    //await Task.Delay(1000);
+        //    //values.Add(await ReadVariableFromServer(tagId));
+        //    return values.Where(v => Convert.ToBoolean(v.Value) == true).Count() >= 2 ? true : false;
+        //}
 
         public async Task<List<TagValue>> ReadValuesFromArchive(int tagId, DateTime startTime, DateTime endTime)
         {

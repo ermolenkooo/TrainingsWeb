@@ -144,8 +144,9 @@ namespace React.Server
             //запускаем таймер, который через каждую секунду будет вызывать функцию проверки всех сигналов
             _timer = new TimerManager();
             _timer.TimerTick += async () => await CheckAllAsync();
-            await CheckAllAsync();
+            //_timer.TimerForDiscretsTick += async () => await CheckDiscretSignalsAsync();
             _timer.Start();
+            //_timer.StartTimerForDiscrets();
         }
 
         //получение сигналов и операций, относящихся к выбранной тренировке
@@ -233,13 +234,14 @@ namespace React.Server
             //выдержка времени перед операцией
             if (operation.TimePause.Ticks > 0)
             {
-                var time = operation.TimePause;
-                while (time != TimeSpan.Zero)
-                {
-                    _cancellationTokenSource.Token.ThrowIfCancellationRequested();
-                    Thread.Sleep(1000);
-                    time = time.Subtract(new TimeSpan(0, 0, 1));
-                }
+                Thread.Sleep(operation.TimePause);
+                //var time = operation.TimePause;
+                //while (time != TimeSpan.Zero)
+                //{
+                //    _cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                //    Thread.Sleep(1000);
+                //    time = time.Subtract(new TimeSpan(0, 0, 1));
+                //}
             }
 
             //результат записи
@@ -308,6 +310,61 @@ namespace React.Server
             }
         }
 
+        //public async Task CheckDiscretSignalsAsync()
+        //{
+        //    //одиночные дискретные сигналы
+        //    for (int i = 0; i < _discretSignals.Count; i++)
+        //    {
+        //        int index = i;
+        //        //создаём новую задачу
+        //        var task = new Task(async () =>
+        //        {
+        //            try
+        //            {
+        //                //проверяем не отменена ли задача
+        //                _cancellationTokenSource.Token.ThrowIfCancellationRequested();
+        //                //вызываем функцию проверки дискретного сигнала
+        //                await CheckDiscretSignalAsync(index);
+        //                //снова проверяем на отмену
+        //                _cancellationTokenSource.Token.ThrowIfCancellationRequested();
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                //если в ходе выполнения возникла ошибка
+        //                if (!_isException)
+        //                {
+        //                    _isException = true;
+        //                    //останавливаем таймер
+        //                    _timer.Stop();
+        //                    //отменяем задачи
+        //                    _cancellationTokenSource.Cancel();
+
+        //                    //отправляем сообщение об ошибке
+        //                    await _hubContext.Clients.All.SendAsync(receiveFunctionName, ex.Message);
+
+        //                    //ожидаем завершения всех задач
+        //                    foreach (var t in _tasks)
+        //                        if (t.Id != Task.CurrentId && !t.IsCanceled)
+        //                            try
+        //                            {
+        //                                await t;
+        //                            }
+        //                            catch
+        //                            { }
+        //                    //вызываем функцию окончания тренировки
+        //                    await TrainingEnd(false);
+        //                }
+        //            }
+        //        }, _cancellationTokenSource.Token);
+        //        //запускаем задачу
+        //        if (!task.IsCompleted && !task.IsCanceled)
+        //        {
+        //            task.Start();
+        //            _tasks.Add(task);
+        //        }
+        //    }
+        //}
+
         public async Task CheckAllAsync()
         {
             //одиночные дискретные сигналы
@@ -331,26 +388,26 @@ namespace React.Server
                         //если в ходе выполнения возникла ошибка
                         if (!_isException)
                         {
-                            _isException = true;
-                            //останавливаем таймер
-                            _timer.Stop();
-                            //отменяем задачи
-                            _cancellationTokenSource.Cancel();
+                            //_isException = true;
+                            ////останавливаем таймер
+                            //_timer.Stop();
+                            ////отменяем задачи
+                            //_cancellationTokenSource.Cancel();
 
                             //отправляем сообщение об ошибке
                             await _hubContext.Clients.All.SendAsync(receiveFunctionName, ex.Message);
 
                             //ожидаем завершения всех задач
-                            foreach (var t in _tasks)
-                                if (t.Id != Task.CurrentId && !t.IsCanceled)
-                                    try 
-                                    { 
-                                        await t; 
-                                    }
-                                    catch
-                                    { }
-                            //вызываем функцию окончания тренировки
-                            await TrainingEnd(false);
+                            //foreach (var t in _tasks)
+                            //    if (t.Id != Task.CurrentId && !t.IsCanceled)
+                            //        try
+                            //        {
+                            //            await t;
+                            //        }
+                            //        catch
+                            //        { }
+                            ////вызываем функцию окончания тренировки
+                            //await TrainingEnd(false);
                         }
                     }
                 }, _cancellationTokenSource.Token);
@@ -383,26 +440,26 @@ namespace React.Server
                         //если в ходе выполнения возникла ошибка
                         if (!_isException)
                         {
-                            _isException = true;
-                            //останавливаем таймер
-                            _timer.Stop();
-                            //отменяем задачи
-                            _cancellationTokenSource.Cancel();
+                            //_isException = true;
+                            ////останавливаем таймер
+                            //_timer.Stop();
+                            ////отменяем задачи
+                            //_cancellationTokenSource.Cancel();
 
                             //отправляем сообщение об ошибке
                             await _hubContext.Clients.All.SendAsync(receiveFunctionName, ex.Message);
 
                             //ожидаем завершения всех задач
-                            foreach (var t in _tasks)
-                                if (t.Id != Task.CurrentId && !t.IsCanceled)
-                                    try
-                                    {
-                                        await t;
-                                    }
-                                    catch
-                                    { }
-                            //вызываем функцию окончания тренировки
-                            await TrainingEnd(false);
+                            //foreach (var t in _tasks)
+                            //    if (t.Id != Task.CurrentId && !t.IsCanceled)
+                            //        try
+                            //        {
+                            //            await t;
+                            //        }
+                            //        catch
+                            //        { }
+                            ////вызываем функцию окончания тренировки
+                            //await TrainingEnd(false);
                         }
                     }
                 }, _cancellationTokenSource.Token);
@@ -435,26 +492,26 @@ namespace React.Server
                         //если в ходе выполнения возникла ошибка
                         if (!_isException)
                         {
-                            _isException = true;
-                            //останавливаем таймер
-                            _timer.Stop();
-                            //отменяем задачи
-                            _cancellationTokenSource.Cancel();
+                            //_isException = true;
+                            ////останавливаем таймер
+                            //_timer.Stop();
+                            ////отменяем задачи
+                            //_cancellationTokenSource.Cancel();
 
                             //отправляем сообщение об ошибке
                             await _hubContext.Clients.All.SendAsync(receiveFunctionName, ex.Message);
 
                             //ожидаем завершения всех задач
-                            foreach (var t in _tasks)
-                                if (t.Id != Task.CurrentId && !t.IsCanceled)
-                                    try
-                                    {
-                                        await t;
-                                    }
-                                    catch
-                                    { }
-                            //вызываем функцию окончания тренировки
-                            await TrainingEnd(false);
+                            //foreach (var t in _tasks)
+                            //    if (t.Id != Task.CurrentId && !t.IsCanceled)
+                            //        try
+                            //        {
+                            //            await t;
+                            //        }
+                            //        catch
+                            //        { }
+                            ////вызываем функцию окончания тренировки
+                            //await TrainingEnd(false);
                         }
                     }
                 }, _cancellationTokenSource.Token);
@@ -487,26 +544,26 @@ namespace React.Server
                         //если в ходе выполнения возникла ошибка
                         if (!_isException)
                         {
-                            _isException = true;
-                            //останавливаем таймер
-                            _timer.Stop();
-                            //отменяем задачи
-                            _cancellationTokenSource.Cancel();
+                            //_isException = true;
+                            ////останавливаем таймер
+                            //_timer.Stop();
+                            ////отменяем задачи
+                            //_cancellationTokenSource.Cancel();
 
                             //отправляем сообщение об ошибке
                             await _hubContext.Clients.All.SendAsync(receiveFunctionName, ex.Message);
 
                             //ожидаем завершения всех задач
-                            foreach (var t in _tasks)
-                                if (t.Id != Task.CurrentId && !t.IsCanceled)
-                                    try
-                                    {
-                                        await t;
-                                    }
-                                    catch
-                                    { }
-                            //вызываем функцию окончания тренировки
-                            await TrainingEnd(false);
+                            //foreach (var t in _tasks)
+                            //    if (t.Id != Task.CurrentId && !t.IsCanceled)
+                            //        try
+                            //        {
+                            //            await t;
+                            //        }
+                            //        catch
+                            //        { }
+                            ////вызываем функцию окончания тренировки
+                            //await TrainingEnd(false);
                         }
                     }
                 }, _cancellationTokenSource.Token);
@@ -539,26 +596,26 @@ namespace React.Server
                         //если в ходе выполнения возникла ошибка
                         if (!_isException)
                         {
-                            _isException = true;
-                            //останавливаем таймер
-                            _timer.Stop();
-                            //отменяем задачи
-                            _cancellationTokenSource.Cancel();
+                            //_isException = true;
+                            ////останавливаем таймер
+                            //_timer.Stop();
+                            ////отменяем задачи
+                            //_cancellationTokenSource.Cancel();
 
                             //отправляем сообщение об ошибке
                             await _hubContext.Clients.All.SendAsync(receiveFunctionName, ex.Message);
 
                             //ожидаем завершения всех задач
-                            foreach (var t in _tasks)
-                                if (t.Id != Task.CurrentId && !t.IsCanceled)
-                                    try
-                                    {
-                                        await t;
-                                    }
-                                    catch
-                                    { }
-                            //вызываем функцию окончания тренировки
-                            await TrainingEnd(false);
+                            //foreach (var t in _tasks)
+                            //    if (t.Id != Task.CurrentId && !t.IsCanceled)
+                            //        try
+                            //        {
+                            //            await t;
+                            //        }
+                            //        catch
+                            //        { }
+                            ////вызываем функцию окончания тренировки
+                            //await TrainingEnd(false);
                         }
                     }
                 }, _cancellationTokenSource.Token);
@@ -582,13 +639,13 @@ namespace React.Server
                 switch (lv.BaseNum)
                 {
                     case 1:
-                        value = await scadaVConnection1.ReadDiscretFromServer(lv.ExitId);
+                        value = await scadaVConnection1.ReadDiscretFromServerForDiscretSignal(lv.ExitId);
                         break;
                     case 2:
-                        value = await scadaVConnection2.ReadDiscretFromServer(lv.ExitId);
+                        value = await scadaVConnection2.ReadDiscretFromServerForDiscretSignal(lv.ExitId);
                         break;
                     case 3:
-                        value = await scadaVConnection3.ReadDiscretFromServer(lv.ExitId);
+                        value = await scadaVConnection3.ReadDiscretFromServerForDiscretSignal(lv.ExitId);
                         break;
                 }
                 //прибавляем одну секунду
@@ -608,6 +665,7 @@ namespace React.Server
                         _discretSignals[i].Tags[0] = true;
                         if (borders.Score1 != 0) 
                         {
+                            Console.WriteLine("вычитаю баллы. deltat = " + _discretSignals[i].DeltaT.ToString() + "border.t = " + borders.T1.ToString() + DateTime.Now);
                             string str = _discretSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + " - " + DateTime.Now.ToString("T");
                             await _hubContext.Clients.All.SendAsync(receiveFunctionName, str);
                             await _hubContext.Clients.All.SendAsync("ReceiveCriterias1", str);
@@ -622,6 +680,8 @@ namespace React.Server
                             _discretSignals[i].Tags[1] = true;
                             if (borders.Score2 != 0)
                             {
+                                Console.WriteLine("вычитаю баллы. deltat = " + _discretSignals[i].DeltaT.ToString() + "border.t = " + borders.T2.ToString() + DateTime.Now);
+
                                 string str = _discretSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + " - " + DateTime.Now.ToString("T");
                                 await _hubContext.Clients.All.SendAsync(receiveFunctionName, str);
                                 await _hubContext.Clients.All.SendAsync("ReceiveCriterias1", str);
@@ -636,6 +696,8 @@ namespace React.Server
                             _discretSignals[i].Tags[2] = true;
                             if (borders.Score3 != 0)
                             {
+                                Console.WriteLine("вычитаю баллы. deltat = " + _discretSignals[i].DeltaT.ToString() + "border.t = " + borders.T3.ToString() + DateTime.Now);
+
                                 string str = _discretSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + " - " + DateTime.Now.ToString("T");
                                 await _hubContext.Clients.All.SendAsync(receiveFunctionName, str);
                                 await _hubContext.Clients.All.SendAsync("ReceiveCriterias1", str);
@@ -650,6 +712,8 @@ namespace React.Server
                             _discretSignals[i].Tags[3] = true;
                             if (borders.Score4 != 0)
                             {
+                                Console.WriteLine("вычитаю баллы. deltat = " + _discretSignals[i].DeltaT.ToString() + "border.t = " + borders.T4.ToString() + DateTime.Now);
+
                                 string str = _discretSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + " - " + DateTime.Now.ToString("T");
                                 await _hubContext.Clients.All.SendAsync(receiveFunctionName, str);
                                 await _hubContext.Clients.All.SendAsync("ReceiveCriterias1", str);
@@ -664,6 +728,8 @@ namespace React.Server
                             _discretSignals[i].Tags[4] = true;
                             if (borders.Score5 != 0)
                             {
+                                Console.WriteLine("вычитаю баллы. deltat = " + _discretSignals[i].DeltaT.ToString() + "border.t = " + borders.T4.ToString() + DateTime.Now);
+
                                 string str = _discretSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + " - " + DateTime.Now.ToString("T");
                                 await _hubContext.Clients.All.SendAsync(receiveFunctionName, str);
                                 await _hubContext.Clients.All.SendAsync("ReceiveCriterias1", str);
@@ -674,8 +740,6 @@ namespace React.Server
                     //если все диапазоны отмечены, помечаем сигнал отмеченным
                     if (_discretSignals[i].Tags.All(value => value))
                         _discretSignals[i].IsChecked = true;
-                    //q.TryAdd(new Log { Type = "Trace", Message = "TagId = " + lv.ExitId.ToString() });
-                    //q.TryAdd(new Log { Type = "Trace", Message = _mark.ToString() + " - текущая оценка." });
                 }
             }
         }
@@ -693,13 +757,13 @@ namespace React.Server
                     switch (lv.BaseNum)
                     {
                         case 1:
-                            value = await scadaVConnection1.ReadDiscretFromServer(lv.ExitId);
+                            value = await scadaVConnection1.ReadDiscretFromServerForDiscretSignal(lv.ExitId);
                             break;
                         case 2:
-                            value = await scadaVConnection2.ReadDiscretFromServer(lv.ExitId);
+                            value = await scadaVConnection2.ReadDiscretFromServerForDiscretSignal(lv.ExitId);
                             break;
                         case 3:
-                            value = await scadaVConnection3.ReadDiscretFromServer(lv.ExitId);
+                            value = await scadaVConnection3.ReadDiscretFromServerForDiscretSignal(lv.ExitId);
                             break;
                     }
                     _doubleDiscretSignals[i].DeltaT = _doubleDiscretSignals[i].DeltaT.Add(new TimeSpan(0, 0, 1));
@@ -714,6 +778,8 @@ namespace React.Server
                             _doubleDiscretSignals[i].Tags[0] = true;
                             if (borders.Score1 != 0)
                             {
+                                Console.WriteLine("вычитаю баллы. deltat = " + _doubleDiscretSignals[i].DeltaT.ToString() + "border.t = " + borders.T1.ToString());
+
                                 string str = _doubleDiscretSignals[i].Name + " - " + borders.Score1 + " " + getWord(borders.Score1) + " - " + DateTime.Now.ToString("T");
                                 await _hubContext.Clients.All.SendAsync(receiveFunctionName, str);
                                 await _hubContext.Clients.All.SendAsync("ReceiveCriterias1", str);
@@ -728,6 +794,8 @@ namespace React.Server
                                 _doubleDiscretSignals[i].Tags[1] = true;
                                 if (borders.Score2 != 0)
                                 {
+                                    Console.WriteLine("вычитаю баллы. deltat = " + _doubleDiscretSignals[i].DeltaT.ToString() + "border.t = " + borders.T2.ToString());
+
                                     string str = _doubleDiscretSignals[i].Name + " - " + borders.Score2 + " " + getWord(borders.Score2) + " - " + DateTime.Now.ToString("T");
                                     await _hubContext.Clients.All.SendAsync(receiveFunctionName, str);
                                     await _hubContext.Clients.All.SendAsync("ReceiveCriterias1", str);
@@ -742,6 +810,8 @@ namespace React.Server
                                 _doubleDiscretSignals[i].Tags[2] = true;
                                 if (borders.Score3 != 0)
                                 {
+                                    Console.WriteLine("вычитаю баллы. deltat = " + _doubleDiscretSignals[i].DeltaT.ToString() + "border.t = " + borders.T3.ToString());
+
                                     string str = _doubleDiscretSignals[i].Name + " - " + borders.Score3 + " " + getWord(borders.Score3) + " - " + DateTime.Now.ToString("T");
                                     await _hubContext.Clients.All.SendAsync(receiveFunctionName, str);
                                     await _hubContext.Clients.All.SendAsync("ReceiveCriterias1", str);
@@ -756,6 +826,8 @@ namespace React.Server
                                 _doubleDiscretSignals[i].Tags[3] = true;
                                 if (borders.Score4 != 0)
                                 {
+                                    Console.WriteLine("вычитаю баллы. deltat = " + _doubleDiscretSignals[i].DeltaT.ToString() + "border.t = " + borders.T4.ToString());
+
                                     string str = _doubleDiscretSignals[i].Name + " - " + borders.Score4 + " " + getWord(borders.Score4) + " - " + DateTime.Now.ToString("T");
                                     await _hubContext.Clients.All.SendAsync(receiveFunctionName, str);
                                     await _hubContext.Clients.All.SendAsync("ReceiveCriterias1", str);
@@ -770,6 +842,8 @@ namespace React.Server
                                 _doubleDiscretSignals[i].Tags[4] = true;
                                 if (borders.Score5 != 0)
                                 {
+                                    Console.WriteLine("вычитаю баллы. deltat = " + _doubleDiscretSignals[i].DeltaT.ToString() + "border.t = " + borders.T4.ToString());
+
                                     string str = _doubleDiscretSignals[i].Name + " - " + borders.Score5 + " " + getWord(borders.Score5) + " - " + DateTime.Now.ToString("T");
                                     await _hubContext.Clients.All.SendAsync(receiveFunctionName, str);
                                     await _hubContext.Clients.All.SendAsync("ReceiveCriterias1", str);
@@ -790,13 +864,13 @@ namespace React.Server
                     switch (lv.BaseNum)
                     {
                         case 1:
-                            value = await scadaVConnection1.ReadDiscretFromServer(lv.ExitId);
+                            value = await scadaVConnection1.ReadDiscretFromServerForDiscretSignal(lv.ExitId);
                             break;
                         case 2:
-                            value = await scadaVConnection2.ReadDiscretFromServer(lv.ExitId);
+                            value = await scadaVConnection2.ReadDiscretFromServerForDiscretSignal(lv.ExitId);
                             break;
                         case 3:
-                            value = await scadaVConnection3.ReadDiscretFromServer(lv.ExitId);
+                            value = await scadaVConnection3.ReadDiscretFromServerForDiscretSignal(lv.ExitId);
                             break;
                     }
                     if (value)
@@ -943,7 +1017,7 @@ namespace React.Server
                                 break;
                         }
 
-                        _groupOfDiscretSignals[i].EndLogicVariables[j].IsChecked = await scadaVConnection.ReadDiscretFromServer(_groupOfDiscretSignals[i].EndLogicVariables[j].ExitId);
+                        _groupOfDiscretSignals[i].EndLogicVariables[j].IsChecked = await scadaVConnection.ReadDiscretFromServerForDiscretSignal(_groupOfDiscretSignals[i].EndLogicVariables[j].ExitId);
                     }
 
                     for (int j = 0; j < _groupOfDiscretSignals[i].EndSignals.Count; j++)
@@ -1076,7 +1150,7 @@ namespace React.Server
                                     break;
                             }
 
-                            bool value = await scadaVConnection.ReadDiscretFromServer(_groupOfDiscretSignals[i].StartLogicVariables[j].ExitId);
+                            bool value = await scadaVConnection.ReadDiscretFromServerForDiscretSignal(_groupOfDiscretSignals[i].StartLogicVariables[j].ExitId);
                             if (value)
                                 _groupOfDiscretSignals[i].StartLogicVariables[j].IsChecked = true;
                         }
@@ -1161,21 +1235,21 @@ namespace React.Server
                         break;
                 }
 
-                bool value = await scadaV2Connection.ReadDiscretFromServer(_operationsWithCondition[i].ConditionExitId);
+                bool value = await scadaV2Connection.ReadDiscretFromServerForDiscretSignal(_operationsWithCondition[i].ConditionExitId);
                 if (value)
                 {
                     _operationsWithCondition[i].IsChecked = true;
 
-                    if (_operationsWithCondition[i].TimePause.Ticks > 0)
-                    {
-                        var time = _operationsWithCondition[i].TimePause;
-                        while (time !=  TimeSpan.Zero)
-                        {
-                            _cancellationTokenSource.Token.ThrowIfCancellationRequested();
-                            Thread.Sleep(1000);
-                            time = time.Subtract(new TimeSpan(0, 0, 1));
-                        }
-                    }
+                    //if (_operationsWithCondition[i].TimePause.Ticks > 0)
+                    //{
+                    //    var time = _operationsWithCondition[i].TimePause;
+                    //    while (time !=  TimeSpan.Zero)
+                    //    {
+                    //        _cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                    //        Thread.Sleep(1000);
+                    //        time = time.Subtract(new TimeSpan(0, 0, 1));
+                    //    }
+                    //}
 
                     if (_operationsWithCondition[i].TimePause.Ticks > 0)
                         Thread.Sleep(_operationsWithCondition[i].TimePause); //выдержка времени перед операцией
@@ -1592,6 +1666,8 @@ namespace React.Server
                 string str;
 
                 await CheckAllAsync();
+
+                //await CheckDiscretSignalsAsync();
 
                 await CheckCriteriasForReliabilityOfStartAndStop();
 

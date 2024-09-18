@@ -47,7 +47,7 @@ namespace BLL
 
         private void setTimerForDiscretSignals()
         {
-            timerForDiscretSignals = new System.Timers.Timer(1000);
+            timerForDiscretSignals = new System.Timers.Timer(3000);
             timerForDiscretSignals.Elapsed += OnTimedEventForDiscrets;
             timerForDiscretSignals.AutoReset = true;
             timerForDiscretSignals.Enabled = true;
